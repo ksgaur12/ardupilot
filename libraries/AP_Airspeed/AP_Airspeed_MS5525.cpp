@@ -27,6 +27,8 @@
 #include <AP_HAL/utility/sparse-endian.h>
 #include <AP_Math/AP_Math.h>
 
+#include <GCS_MAVLink/GCS.h>
+
 extern const AP_HAL::HAL &hal;
 
 #define MS5525D0_I2C_ADDR_1 0x76
@@ -314,5 +316,6 @@ bool AP_Airspeed_MS5525::get_temperature(float &_temperature)
         sem->give();
     }
     _temperature = temperature;
+
     return true;
 }

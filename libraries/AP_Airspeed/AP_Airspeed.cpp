@@ -29,6 +29,9 @@
 #include "AP_Airspeed_SDP3X.h"
 #include "AP_Airspeed_analog.h"
 #include "AP_Airspeed_Backend.h"
+#if HAL_WITH_UAVCAN
+#include "AP_Airspeed_UAVCAN.h"
+#endif
 
 extern const AP_HAL::HAL &hal;
 
@@ -54,7 +57,7 @@ const AP_Param::GroupInfo AP_Airspeed::var_info[] = {
     // @Param: _TYPE
     // @DisplayName: Airspeed type
     // @Description: Type of airspeed sensor
-    // @Values: 0:None,1:I2C-MS4525D0,2:Analog,3:I2C-MS5525,4:I2C-MS5525 (0x76),5:I2C-MS5525 (0x77),6:I2C-SDP3X
+    // @Values: 0:None,1:I2C-MS4525D0,2:Analog,3:I2C-MS5525,4:I2C-MS5525 (0x76),5:I2C-MS5525 (0x77),6:I2C-SDP3X, 7:CAN
     // @User: Standard
     AP_GROUPINFO_FLAGS("_TYPE", 0, AP_Airspeed, param[0].type, ARSPD_DEFAULT_TYPE, AP_PARAM_FLAG_ENABLE),
 
@@ -237,6 +240,7 @@ void AP_Airspeed::init()
             sensor[i] = new AP_Airspeed_Analog(*this, i);
             break;
         case TYPE_I2C_MS5525:
+            gcs().send_text(MAV_SEVERITY_INFO, "node null_pointer_error");
             sensor[i] = new AP_Airspeed_MS5525(*this, i, AP_Airspeed_MS5525::MS5525_ADDR_AUTO);
             break;
         case TYPE_I2C_MS5525_ADDRESS_1:
@@ -247,6 +251,9 @@ void AP_Airspeed::init()
             break;
         case TYPE_I2C_SDP3X:
             sensor[i] = new AP_Airspeed_SDP3X(*this, i);
+            break;
+        case TYPE_CAN:
+            sensor[i] = AP_Airspeed_UAVCAN::probe(*this,i);
             break;
         }
         if (sensor[i] && !sensor[i]->init()) {
