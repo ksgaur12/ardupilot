@@ -76,6 +76,11 @@
 #define AP_SERIALMANAGER_SBUS1_BUFSIZE_RX     16
 #define AP_SERIALMANAGER_SBUS1_BUFSIZE_TX     32
 
+//Microstrain IMU
+#define AP_SERIALMANAGER_IMU_BAUD            115200
+#define AP_SERIALMANAGER_IMU_BUFSIZE_RX      256
+#define AP_SERIALMANAGER_IMU_BUFSIZE_TX      128
+
 class AP_SerialManager {
 public:
     AP_SerialManager();
@@ -106,6 +111,7 @@ public:
         SerialProtocol_Devo_Telem = 17,
         SerialProtocol_OpticalFlow = 18,
         SerialProtocol_Robotis = 19,
+        SerialProtocol_IMU = 20,
     };
 
     // get singleton instance

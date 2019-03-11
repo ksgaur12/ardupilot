@@ -16,6 +16,8 @@
 #define INS_MAX_BACKENDS  6
 #define INS_VIBRATION_CHECK_INSTANCES 2
 
+#define INS_EXTERNAL_MAX_INSTANCES 1
+
 #define DEFAULT_IMU_LOG_BAT_MASK 0
 
 #include <stdint.h>
@@ -23,6 +25,7 @@
 #include <AP_AccelCal/AP_AccelCal.h>
 #include <AP_HAL/AP_HAL.h>
 #include <AP_Math/AP_Math.h>
+#include <AP_SerialManager/AP_SerialManager.h>
 #include <Filter/LowPassFilter2p.h>
 #include <Filter/LowPassFilter.h>
 #include <Filter/NotchFilter.h>
@@ -62,6 +65,8 @@ public:
         GYRO_CAL_STARTUP_ONLY = 1
     };
 
+    void init_external(const AP_SerialManager& serial_manager);
+
     /// Perform startup initialisation.
     ///
     /// Called to initialise the state of the IMU.
@@ -70,7 +75,7 @@ public:
     ///
     /// @param style	The initialisation startup style.
     ///
-    void init(uint16_t sample_rate_hz);
+    void init(uint16_t sample_rate_hz, const AP_SerialManager& serial_manager);
 
     /// Register a new gyro/accel driver, allocating an instance
     /// number
@@ -437,6 +442,9 @@ private:
     // accelerometer position offset in body frame
     AP_Vector3f _accel_pos[INS_MAX_INSTANCES];
 
+    //UART port for IMU, currently max 1 allowed
+    AP_HAL::UARTDriver *_port[INS_EXTERNAL_MAX_INSTANCES];
+
     // accelerometer max absolute offsets to be used for calibration
     float _accel_max_abs_offsets[INS_MAX_INSTANCES];
 
@@ -476,6 +484,10 @@ private:
     // control enable of detected sensors
     AP_Int8     _enable_mask;
     
+    //use only external IMU
+    //when enabled only external IMU will get detected
+    AP_Int8     _use_external;
+
     // board orientation from AHRS
     enum Rotation _board_orientation;
     Matrix3f* _custom_rotation;
@@ -541,7 +553,6 @@ private:
 
     // threshold for detecting stillness
     AP_Float _still_threshold;
-
     /*
       state for HIL support
      */

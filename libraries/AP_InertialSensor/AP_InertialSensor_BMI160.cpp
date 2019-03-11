@@ -496,5 +496,4 @@ bool AP_InertialSensor_BMI160::_init()
 
     return ret;
 }
-
 #endif

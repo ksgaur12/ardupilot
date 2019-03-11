@@ -350,7 +350,6 @@ void Plane::airspeed_ratio_update(void)
     gcs_send_airspeed_calibration(vg);
 }
 
-
 /*
   read the GPS and update position
  */

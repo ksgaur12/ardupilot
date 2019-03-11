@@ -11,6 +11,7 @@
 #include <AP_AHRS/AP_AHRS.h>
 
 #include "AP_InertialSensor.h"
+#include "AP_InertialSensor_3DMCV5.h"
 #include "AP_InertialSensor_BMI160.h"
 #include "AP_InertialSensor_Backend.h"
 #include "AP_InertialSensor_HIL.h"
@@ -448,6 +449,12 @@ const AP_Param::GroupInfo AP_InertialSensor::var_info[] = {
     // @Bitmask: 0:FirstIMU,1:SecondIMU,2:ThirdIMU
     AP_GROUPINFO("ENABLE_MASK",  40, AP_InertialSensor, _enable_mask, 0x7F),
     
+    // @Param: USE_EXT
+    // @DisplayName: External IMU use
+    // @Description: Enables use of external IMU on UART. When enabled, no internal IMU will get detected.
+    // @Values: 0:DoNotUse,1:Use
+    // @User: Advanced
+    AP_GROUPINFO("USE_EXT",    41, AP_InertialSensor, _use_external, 0),
     /*
       NOTE: parameter indexes have gaps above. When adding new
       parameters check for conflicts carefully
@@ -610,8 +617,12 @@ AP_InertialSensor_Backend *AP_InertialSensor::_find_backend(int16_t backend_id, 
     return nullptr;
 }
 
-void
-AP_InertialSensor::init(uint16_t sample_rate)
+void AP_InertialSensor::init_external(const AP_SerialManager& serial_manager){
+    //find serial port for external imu
+    _port[0] = serial_manager.find_serial(AP_SerialManager::SerialProtocol_IMU, 0);
+}
+
+void AP_InertialSensor::init(uint16_t sample_rate, const AP_SerialManager& serial_manager)
 {
     // remember the sample rate
     _sample_rate = sample_rate;
@@ -621,6 +632,7 @@ AP_InertialSensor::init(uint16_t sample_rate)
     // time to be exposed outside of INS. Large deltat values can
     // cause divergence of state estimators
     _loop_delta_t_max = 10 * _loop_delta_t;
+
 
     if (_gyro_count == 0 && _accel_count == 0) {
         _start_backends();
@@ -696,6 +708,15 @@ AP_InertialSensor::detect_backends(void)
         ADD_BACKEND(AP_InertialSensor_HIL::detect(*this));
         return;
     }
+
+    if( _use_external.get() && _port[0]){
+        ADD_BACKEND(AP_InertialSensor_3DMCV5::probe(*this, _port[0], ROTATION_NONE));
+        return;
+    }
+    else{
+        hal.console->printf("no imu sensor");
+    }
+
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
     ADD_BACKEND(AP_InertialSensor_SITL::detect(*this));
 #elif HAL_INS_DEFAULT == HAL_INS_HIL
@@ -765,7 +786,7 @@ AP_InertialSensor::detect_backends(void)
         break;
         
     case AP_BoardConfig::PX4_BOARD_PIXRACER:
-        // only do fast samplng on ICM-20608. The MPU9250 doesn't handle high rate well when it has a mag enabled
+         //only do fast samplng on ICM-20608. The MPU9250 doesn't handle high rate well when it has a mag enabled
         _fast_sampling_mask.set_default(1);
         ADD_BACKEND(AP_InertialSensor_Invensense::probe(*this, hal.spi->get_device(HAL_INS_ICM20608_NAME), ROTATION_ROLL_180_YAW_90));
         ADD_BACKEND(AP_InertialSensor_Invensense::probe(*this, hal.spi->get_device(HAL_INS_MPU9250_NAME), ROTATION_ROLL_180_YAW_90));
@@ -1240,7 +1261,6 @@ void AP_InertialSensor::_save_gyro_calibration()
         _gyro_id[i].set_and_save(0);
     }
 }
-
 
 /*
   update gyro and accel values from backends
