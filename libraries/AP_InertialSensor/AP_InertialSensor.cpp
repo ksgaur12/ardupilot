@@ -619,10 +619,12 @@ AP_InertialSensor_Backend *AP_InertialSensor::_find_backend(int16_t backend_id, 
 
 void AP_InertialSensor::init_external(const AP_SerialManager& serial_manager){
     //find serial port for external imu
-    _port[0] = serial_manager.find_serial(AP_SerialManager::SerialProtocol_IMU, 0);
+    if(_use_external.get()){
+        _port[0] = serial_manager.find_serial(AP_SerialManager::SerialProtocol_IMU, 0);
+    }
 }
 
-void AP_InertialSensor::init(uint16_t sample_rate, const AP_SerialManager& serial_manager)
+void AP_InertialSensor::init(uint16_t sample_rate)
 {
     // remember the sample rate
     _sample_rate = sample_rate;

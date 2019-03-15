@@ -38,6 +38,39 @@ class AP_InertialSensor_3DMCV5 : public AP_InertialSensor_Backend {
         uint8_t check1;
         uint8_t check2;
     };
+
+    struct IMU_setting_packet{
+        uint8_t sync1           = 0x75;
+        uint8_t sync2           = 0x65;
+        uint8_t desc_set        = 0x0C;
+        uint8_t pay_len         = 0x0A;
+        uint8_t field_len       = 0x0A;
+        uint8_t field_desc      = 0x08;
+        uint8_t func            = 0x01;
+        uint8_t desc_count      = 0x02;
+        uint8_t desc1           = 0x04;
+        uint8_t desc1_rate_msb  = 0x00;
+        uint8_t desc1_rate_lsb  = 0x05;
+        uint8_t desc2           = 0x05;
+        uint8_t desc2_rate_msb  = 0x00;
+        uint8_t desc2_rate_lsb  = 0x05;
+        uint8_t check_msb;
+        uint8_t check_lsb;
+    };
+
+    struct mode_packet{
+        uint8_t sync1           = 0x75;
+        uint8_t sync2           = 0x65;
+        uint8_t desc_set        = 0x0C;
+        uint8_t pay_len         = 0x05;
+        uint8_t field_len       = 0x05;
+        uint8_t field_desc      = 0x11;
+        uint8_t func            = 0x01;
+        uint8_t device          = 0x01;
+        uint8_t stream          = 0x01;
+        uint8_t check_msb;
+        uint8_t check_lsb;
+    };
 public:
     static AP_InertialSensor_Backend *probe(AP_InertialSensor &imu,
             AP_HAL::UARTDriver *_port,
@@ -54,8 +87,11 @@ private:
             AP_HAL::UARTDriver *_port,
             enum Rotation rotation = ROTATION_NONE);
 
+    //parse continuous stream of packet to accel and gyro data
     void _get_data();
 
+    //calculate fletcher's checksum
+    void calculate_checksum(uint8_t *data, uint8_t len);
     //    /*
     //      initialise driver
     //     */
@@ -65,9 +101,8 @@ private:
     uint8_t _gyro_instance;
 
     enum Rotation rotation;
-
-    HAL_Semaphore _sem;
-
+    IMU_setting_packet imu_config;
+    mode_packet continuous_mode_config;
 
 protected:
     AP_HAL::UARTDriver *port;           ///< UART we are attached to

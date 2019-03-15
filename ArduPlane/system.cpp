@@ -56,6 +56,7 @@ void Plane::init_ardupilot()
     serial_manager.init();
     gcs().chan(0).setup_uart(serial_manager, AP_SerialManager::SerialProtocol_MAVLink, 0);
 
+    //find uart port for external IMU if available
     ins.init_external(serial_manager);
 
     // Register mavlink_delay_cb, which will run anytime you have
@@ -617,7 +618,7 @@ void Plane::startup_INS_ground(void)
     ahrs.set_vehicle_class(AHRS_VEHICLE_FIXED_WING);
     ahrs.set_wind_estimation(true);
 
-    ins.init(scheduler.get_loop_rate_hz(), serial_manager);
+    ins.init(scheduler.get_loop_rate_hz());
     ahrs.reset();
 
     // read Baro pressure at ground
