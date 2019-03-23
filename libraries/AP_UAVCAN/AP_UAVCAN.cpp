@@ -195,6 +195,9 @@ void AP_UAVCAN::init(uint8_t driver_index, bool enable_filters)
         return;
     }
 
+
+    debug_uavcan(2, "UAVCAN: node was already started?\n\r");
+
     //Start Servers
 #ifdef HAS_UAVCAN_SERVERS
     _servers.init(*_node);

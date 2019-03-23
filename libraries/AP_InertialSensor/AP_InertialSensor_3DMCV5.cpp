@@ -107,14 +107,18 @@ void AP_InertialSensor_3DMCV5::_get_data(){
             uint8_t data = port->read_locked(lock_key);
             data_buf[i] = data;
 
+            //hal.console->printf("%x\n",data);
+
             if(i<31){
                 checksum_msb = checksum_msb + data;
                 checksum_lsb = checksum_lsb + checksum_msb;
             }
             else if(i == 31 && checksum_msb != data){
+                //hal.console->printf("checksum_msb failed\n");
                 return;
             }
             else if(i == 32 && checksum_lsb != data){
+                //hal.console->printf("checksum_lsb failed\n");
                 return;
             }
         }
@@ -130,6 +134,7 @@ void AP_InertialSensor_3DMCV5::_get_data(){
         float accel_z1 = *(float *)&accel_z;
 
         Vector3f accel(accel_x1, accel_y1, accel_z1);
+
         accel = accel*GRAVITY_MSS;
 
         _rotate_and_correct_accel(_accel_instance, accel);

@@ -712,7 +712,7 @@ void Compass::_detect_backends(void)
         _driver_type_mask.set_default(1U<<DRIVER_LIS3MDL);
     }
 #endif
-    
+
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
     ADD_BACKEND(DRIVER_SITL, new AP_Compass_SITL());
     return;
@@ -726,7 +726,7 @@ void Compass::_detect_backends(void)
         return;
     }
 #endif
-    
+
 #if HAL_COMPASS_DEFAULT == HAL_COMPASS_HIL
     ADD_BACKEND(DRIVER_SITL, AP_Compass_HIL::detect());
 #elif AP_FEATURE_BOARD_DETECT
@@ -737,8 +737,8 @@ void Compass::_detect_backends(void)
     case AP_BoardConfig::PX4_BOARD_AUAV21:
     case AP_BoardConfig::PX4_BOARD_PH2SLIM:
     case AP_BoardConfig::PX4_BOARD_PIXHAWK2:
-    case AP_BoardConfig::PX4_BOARD_PIXRACER: 
-    case AP_BoardConfig::PX4_BOARD_MINDPXV2: 
+    case AP_BoardConfig::PX4_BOARD_PIXRACER:
+    case AP_BoardConfig::PX4_BOARD_MINDPXV2:
     case AP_BoardConfig::PX4_BOARD_FMUV5:
     case AP_BoardConfig::PX4_BOARD_FMUV6:
     case AP_BoardConfig::PX4_BOARD_PIXHAWK_PRO:
@@ -804,11 +804,11 @@ void Compass::_detect_backends(void)
                                                                   false, ROTATION_ROLL_180_YAW_90));
         }
         break;
-        
+
     case AP_BoardConfig::PX4_BOARD_SP01:
         ADD_BACKEND(DRIVER_AK8963, AP_Compass_AK8963::probe_mpu9250(1, ROTATION_NONE));
         break;
-        
+
     case AP_BoardConfig::PX4_BOARD_PIXRACER:
         ADD_BACKEND(DRIVER_HMC5883, AP_Compass_HMC5843::probe(hal.spi->get_device(HAL_COMPASS_HMC5843_NAME),
                                                               false, ROTATION_PITCH_180));
@@ -831,7 +831,7 @@ void Compass::_detect_backends(void)
     case AP_BoardConfig::PX4_BOARD_AUAV21:
         ADD_BACKEND(DRIVER_AK8963, AP_Compass_AK8963::probe_mpu9250(0, ROTATION_ROLL_180_YAW_90));
         break;
-        
+
     case AP_BoardConfig::PX4_BOARD_PH2SLIM:
         ADD_BACKEND(DRIVER_AK8963, AP_Compass_AK8963::probe_mpu9250(0, ROTATION_YAW_270));
         break;
@@ -841,7 +841,7 @@ void Compass::_detect_backends(void)
                                                               false, ROTATION_YAW_90));
         ADD_BACKEND(DRIVER_LSM303D, AP_Compass_LSM303D::probe(hal.spi->get_device(HAL_INS_LSM9DS0_A_NAME), ROTATION_PITCH_180_YAW_270));
         break;
-        
+
     default:
         break;
     }
@@ -900,7 +900,7 @@ void Compass::_detect_backends(void)
                                                           true, ROTATION_PITCH_180_YAW_90));
 #elif HAL_COMPASS_DEFAULT == HAL_COMPASS_LIS3MDL
     ADD_BACKEND(DRIVER_LIS3MDL, AP_Compass_LIS3MDL::probe(hal.spi->get_device(HAL_COMPASS_LIS3MDL_NAME), false, ROTATION_ROLL_180_YAW_90));
-#elif HAL_COMPASS_DEFAULT == HAL_COMPASS_MAG3110                
+#elif HAL_COMPASS_DEFAULT == HAL_COMPASS_MAG3110
     ADD_BACKEND(DRIVER_MAG3110, AP_Compass_MAG3110::probe(GET_I2C_DEVICE(HAL_MAG3110_I2C_BUS, HAL_MAG3110_I2C_ADDR), ROTATION_NONE));
 #elif HAL_COMPASS_DEFAULT == HAL_COMPASS_IST8310
     ADD_BACKEND(DRIVER_IST8310, AP_Compass_IST8310::probe(GET_I2C_DEVICE(HAL_COMPASS_IST8310_I2C_BUS, HAL_COMPASS_IST8310_I2C_ADDR),
