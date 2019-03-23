@@ -566,14 +566,35 @@ void Plane::update_flight_mode(void)
         nav_roll_cd  = channel_roll->norm_input() * roll_limit_cd;
         nav_roll_cd = constrain_int32(nav_roll_cd, -roll_limit_cd, roll_limit_cd);
         update_load_factor();
-        float pitch_input = channel_pitch->norm_input();
+        //float pitch_input = channel_pitch->norm_input();
+
+        //pitch hold for a given airspeed
+        float current_arsp = airspeed.get_airspeed();
+        float pitch_input;
+        float error = current_arsp - g.arsp_hold;
+
+        if(last_arsp_hold_update == 0){
+            pitch_input = g.arsp_hold_P * error;
+        }
+        else{
+            integral_arsp_hold += (g.arsp_hold_I * error) * (micros() - last_arsp_hold_update)/1000;
+            pitch_input = g.arsp_hold_P * error + integral_arsp_hold + g.arsp_hold_D * 1000 * (error - previous_arsp_hold)/(micros()- last_arsp_hold_update);
+        }
+
+        previous_arsp_hold = error;
+        last_arsp_hold_update = micros();
+
+
         if (pitch_input > 0) {
             nav_pitch_cd = pitch_input * aparm.pitch_limit_max_cd;
         } else {
             nav_pitch_cd = -(pitch_input * pitch_limit_min_cd);
         }
-        adjust_nav_pitch_throttle();
+        //adjust_nav_pitch_throttle();
         nav_pitch_cd = constrain_int32(nav_pitch_cd, pitch_limit_min_cd, aparm.pitch_limit_max_cd.get());
+
+        SRV_Channels::set_output_scaled(SRV_Channel::k_throttle, 0);
+
         if (fly_inverted()) {
             nav_pitch_cd = -nav_pitch_cd;
         }

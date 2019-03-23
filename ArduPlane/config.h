@@ -378,3 +378,18 @@
  #define OSD_ENABLED DISABLED
 #endif
 
+#ifndef ARSP_HOLD_DEFAULT
+ # define ARSP_HOLD_DEFAULT      15
+#endif
+
+#ifndef ARSP_HOLD_P_DEFAULT
+ # define ARSP_HOLD_P_DEFAULT   0.1
+#endif
+
+#ifndef ARSP_HOLD_D_DEFAULT
+ # define ARSP_HOLD_D_DEFAULT      0
+#endif
+
+#ifndef ARSP_HOLD_I_DEFAULT
+ # define ARSP_HOLD_I_DEFAULT      0
+#endif

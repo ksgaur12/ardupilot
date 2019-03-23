@@ -887,6 +887,30 @@ const AP_Param::Info Plane::var_info[] = {
     // @Path: ../libraries/AP_GPS/AP_GPS.cpp
     GOBJECT(gps, "GPS_", AP_GPS),
 
+    // @Param: ARSP_HOLD
+    // @DisplayName: arsp hold
+    // @Description: hold this airspeed in fbwa mode and throttle to zero
+    // @User: Advanced
+    GSCALAR(arsp_hold, "ARSP_HOLD", ARSP_HOLD_DEFAULT),
+
+    // @Param: ARSP_HOLD_D
+    // @DisplayName: arsp hold d gain
+    // @Description: D gain for airpeed hold
+    // @User: Advanced
+    GSCALAR(arsp_hold_D, "ARSP_HOLD_D", ARSP_HOLD_D_DEFAULT),
+
+    // @Param: ARSP_HOLD_P
+    // @DisplayName: arsp hold P gain
+    // @Description: P gain for airspeed hold
+    // @User: Advanced
+    GSCALAR(arsp_hold_P, "ARSP_HOLD_P", ARSP_HOLD_P_DEFAULT),
+
+    // @Param: ARSP_HOLD_I
+    // @DisplayName: arsp hold I gain
+    // @Description: I gain for airspeed hold
+    // @User: Advanced
+    GSCALAR(arsp_hold_I, "ARSP_HOLD_I", ARSP_HOLD_I_DEFAULT),
+
 #if CAMERA == ENABLED
     // @Group: CAM_
     // @Path: ../libraries/AP_Camera/AP_Camera.cpp

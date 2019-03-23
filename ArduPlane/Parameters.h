@@ -345,6 +345,13 @@ public:
         k_param_DataFlash = 253, // Logging Group
 
         // 254,255: reserved
+
+        //
+        // 256: Airspeed hold
+        k_param_arsp_hold = 256,
+        k_param_arsp_hold_P,
+        k_param_arsp_hold_D,
+        k_param_arsp_hold_I,
     };
 
     AP_Int16 format_version;
@@ -457,6 +464,14 @@ public:
     AP_Int16 pitch_trim_cd;
     AP_Int16 FBWB_min_altitude_cm;
     AP_Int8  hil_servos;
+
+    // Airspeed hold
+    //
+    AP_Float arsp_hold;
+    AP_Float arsp_hold_P;
+    AP_Float arsp_hold_D;
+    AP_Float arsp_hold_I;
+
 #if HIL_SUPPORT
     AP_Int8  hil_mode;
 #endif

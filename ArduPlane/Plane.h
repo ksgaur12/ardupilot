@@ -724,6 +724,11 @@ private:
 
     float relative_altitude = 0.0f;
 
+    //
+    float previous_arsp_hold = 0.0f;
+    float integral_arsp_hold = 0.0f;
+    uint32_t last_arsp_hold_update = 0.0f;
+
     // INS variables
     // The main loop execution time.  Seconds
     // This is the time between calls to the DCM algorithm and is the Integration time for the gyros.
