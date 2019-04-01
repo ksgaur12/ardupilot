@@ -71,6 +71,7 @@ HAL_SITL::HAL_SITL() :
         &utilInstance,      /* util */
         &emptyOpticalFlow, /* onboard optical flow */
         &emptyFlash, /* flash driver */
+        nullptr,            /* KeyManager*/
         nullptr),           /* CAN */
     _sitl_state(&sitlState)
 {}

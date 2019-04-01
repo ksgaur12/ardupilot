@@ -19,4 +19,5 @@ namespace Empty {
     class UARTDriver;
     class Util;
     class Flash;
+    class KeyManager;
 }
