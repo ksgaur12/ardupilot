@@ -36,6 +36,7 @@ namespace AP_HAL {
     class Util;
     class Flash;
 
+    class KeyManager;
     /* Utility Classes */
     class Print;
     class Stream;

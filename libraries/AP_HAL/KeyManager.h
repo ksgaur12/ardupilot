@@ -1,7 +1,4 @@
-
-
 /*
- * Copyright (C) Siddharth Bharat Purohit 2017
  * This file is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation, either version 3 of the License, or
@@ -14,21 +11,18 @@
  *
  * You should have received a copy of the GNU General Public License along
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * Code by Andrew Tridgell and Siddharth Bharat Purohit
  */
-#include "hal.h"
+#pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-uint32_t stm32_flash_getpageaddr(uint32_t page);
-uint32_t stm32_flash_getpagesize(uint32_t page);
-uint32_t stm32_flash_getnumpages(void);
-bool stm32_flash_erasepage(uint32_t page);
-bool stm32_flash_write(uint32_t addr, const void *buf, uint32_t count);
-bool stm32_flash_eraseregion(uint32_t addr, uint32_t count);
-void stm32_flash_keep_unlocked(bool set);
-bool stm32_flash_ispageerased(uint32_t page);
-void stm32_flash_program_option_bytes(uint32_t data);
-#ifdef __cplusplus
-}
-#endif
+class AP_HAL::KeyManager {
+public:
+    KeyManager() {}
+    virtual void init() = 0;
+    virtual void reset_sha1() = 0;
+    virtual void update_sha1(const char* data, uint16_t data_len) = 0;
+    virtual void final_sha1(char* hash) = 0;
+    virtual void load_server_pubkey() = 0;
+    virtual int verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hashed_data_len, const uint8_t* signature, uint16_t signature_len) = 0;
+};

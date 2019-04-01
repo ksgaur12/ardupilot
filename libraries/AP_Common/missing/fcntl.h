@@ -1,5 +1,5 @@
-#include_next <fcntl.h>
-
+//#include_next <fcntl.h>
+#include <posix.h>
 /*
  * we only want to define as 0 for those targets in which it doesn't make
  * sense

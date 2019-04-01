@@ -13,6 +13,7 @@ class AP_Param;
 #include "UARTDriver.h"
 #include "system.h"
 #include "OpticalFlow.h"
+#include "KeyManager.h"
 #if HAL_WITH_UAVCAN
 #include "CAN.h"
 #endif
@@ -39,6 +40,7 @@ public:
         AP_HAL::Util*       _util,
         AP_HAL::OpticalFlow *_opticalflow,
         AP_HAL::Flash *_flash,
+        AP_HAL::KeyManager *_key_mgr,
 #if HAL_WITH_UAVCAN
         AP_HAL::CANManager* _can_mgr[MAX_NUMBER_OF_CAN_DRIVERS])
 #else
@@ -63,6 +65,7 @@ public:
         scheduler(_scheduler),
         util(_util),
         opticalflow(_opticalflow),
+        key_mgr(_key_mgr),
         flash(_flash)
     {
 #if HAL_WITH_UAVCAN
@@ -115,6 +118,7 @@ public:
     AP_HAL::Util        *util;
     AP_HAL::OpticalFlow *opticalflow;
     AP_HAL::Flash       *flash;
+    AP_HAL::KeyManager  *key_mgr;
 #if HAL_WITH_UAVCAN
     AP_HAL::CANManager* can_mgr[MAX_NUMBER_OF_CAN_DRIVERS];
 #else
