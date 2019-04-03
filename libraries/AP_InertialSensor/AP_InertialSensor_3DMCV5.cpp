@@ -53,8 +53,8 @@ AP_InertialSensor_3DMCV5::probe(AP_InertialSensor &imu,
 
 void AP_InertialSensor_3DMCV5::start()
 {
-    _gyro_instance = _imu.register_gyro(800, 0);
-    _accel_instance = _imu.register_accel(800, 0);
+    _gyro_instance = _imu.register_gyro(1000, 1);
+    _accel_instance = _imu.register_accel(1000, 1);
 
     hal.scheduler->register_timer_process(FUNCTOR_BIND_MEMBER(&AP_InertialSensor_3DMCV5::_get_data, void));
 }
@@ -86,6 +86,7 @@ bool AP_InertialSensor_3DMCV5::init()
     calculate_checksum((uint8_t *)&continuous_mode_config, sizeof(mode_packet)-2);
     port->write((uint8_t *)&continuous_mode_config, sizeof(mode_packet));
 
+    hal.console->printf("external imu init done");
     return true;
 }
 
