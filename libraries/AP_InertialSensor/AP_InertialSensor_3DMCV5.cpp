@@ -104,22 +104,23 @@ void AP_InertialSensor_3DMCV5::_get_data(){
         uint8_t checksum_lsb = 0x75;
         uint8_t checksum_msb = 0x75;
 
+        if(!port->wait_timeout(33, 10)){
+            return;
+        }
         for (uint32_t i=0 ; i<33 ; i++){
             uint8_t data = port->read_locked(lock_key);
             data_buf[i] = data;
-
-            //hal.console->printf("%x\n",data);
 
             if(i<31){
                 checksum_msb = checksum_msb + data;
                 checksum_lsb = checksum_lsb + checksum_msb;
             }
             else if(i == 31 && checksum_msb != data){
-                //hal.console->printf("checksum_msb failed\n");
+                hal.console->printf("checksum_msb failed\n");
                 return;
             }
             else if(i == 32 && checksum_lsb != data){
-                //hal.console->printf("checksum_lsb failed\n");
+                hal.console->printf("checksum_lsb failed\n");
                 return;
             }
         }
