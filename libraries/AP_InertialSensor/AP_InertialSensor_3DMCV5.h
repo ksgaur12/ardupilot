@@ -50,10 +50,10 @@ class AP_InertialSensor_3DMCV5 : public AP_InertialSensor_Backend {
         uint8_t desc_count      = 0x02;
         uint8_t desc1           = 0x04;
         uint8_t desc1_rate_msb  = 0x00;
-        uint8_t desc1_rate_lsb  = 0x01;
+        uint8_t desc1_rate_lsb  = 0x02;
         uint8_t desc2           = 0x05;
         uint8_t desc2_rate_msb  = 0x00;
-        uint8_t desc2_rate_lsb  = 0x01;
+        uint8_t desc2_rate_lsb  = 0x02;
         uint8_t check_msb;
         uint8_t check_lsb;
     };
