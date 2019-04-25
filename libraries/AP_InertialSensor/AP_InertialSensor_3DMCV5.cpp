@@ -53,8 +53,8 @@ AP_InertialSensor_3DMCV5::probe(AP_InertialSensor &imu,
 
 void AP_InertialSensor_3DMCV5::start()
 {
-    _gyro_instance = _imu.register_gyro(1000, 1);
-    _accel_instance = _imu.register_accel(1000, 1);
+    _gyro_instance = _imu.register_gyro(400, 1);
+    _accel_instance = _imu.register_accel(400, 1);
 
     hal.scheduler->register_timer_process(FUNCTOR_BIND_MEMBER(&AP_InertialSensor_3DMCV5::_get_data, void));
 }
