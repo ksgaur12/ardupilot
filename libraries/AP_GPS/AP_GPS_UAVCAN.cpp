@@ -265,6 +265,22 @@ void AP_GPS_UAVCAN::handle_aux_msg_trampoline(AP_UAVCAN* ap_uavcan, uint8_t node
     }
 }
 
+void AP_GPS_UAVCAN::inject_data(const uint8_t *data, uint16_t len)
+{
+
+#if HAL_WITH_UAVCAN
+	// push outputs to CAN
+	uint8_t can_num_drivers = AP::can().get_num_drivers();
+	for (uint8_t i = 0; i < can_num_drivers; i++) {
+		AP_UAVCAN *ap_uavcan = AP_UAVCAN::get_uavcan(i);
+		if (ap_uavcan == nullptr) {
+			return;
+		}
+		ap_uavcan->rtk_write(data, len);
+	}
+#endif
+}
+
 // Consume new data and mark it received
 bool AP_GPS_UAVCAN::read(void)
 {

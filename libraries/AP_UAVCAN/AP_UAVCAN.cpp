@@ -32,6 +32,7 @@
 #include <uavcan/equipment/actuator/Status.hpp>
 
 #include <uavcan/equipment/esc/RawCommand.hpp>
+#include <uavcan/equipment/gnss/RTCMStream.hpp>
 #include <uavcan/equipment/indication/LightsCommand.hpp>
 #include <uavcan/equipment/indication/SingleLightCommand.hpp>
 #include <uavcan/equipment/indication/RGB565.hpp>
@@ -96,6 +97,7 @@ const AP_Param::GroupInfo AP_UAVCAN::var_info[] = {
 static uavcan::Publisher<uavcan::equipment::actuator::ArrayCommand>* act_out_array[MAX_NUMBER_OF_CAN_DRIVERS];
 static uavcan::Publisher<uavcan::equipment::esc::RawCommand>* esc_raw[MAX_NUMBER_OF_CAN_DRIVERS];
 static uavcan::Publisher<uavcan::equipment::indication::LightsCommand>* rgb_led[MAX_NUMBER_OF_CAN_DRIVERS];
+static uavcan::Publisher<uavcan::equipment::gnss::RTCMStream>* rtk_gps[MAX_NUMBER_OF_CAN_DRIVERS];
 
 AP_UAVCAN::AP_UAVCAN() :
     _node_allocator()
@@ -106,6 +108,8 @@ AP_UAVCAN::AP_UAVCAN() :
         _SRV_conf[i].esc_pending = false;
         _SRV_conf[i].servo_pending = false;
     }
+
+    _gps_conf.rtcm_pending = false;
 
     debug_uavcan(2, "AP_UAVCAN constructed\n\r");
 }
@@ -218,6 +222,10 @@ void AP_UAVCAN::init(uint8_t driver_index, bool enable_filters)
     rgb_led[driver_index]->setTxTimeout(uavcan::MonotonicDuration::fromMSec(20));
     rgb_led[driver_index]->setPriority(uavcan::TransferPriority::OneHigherThanLowest);
 
+    rtk_gps[driver_index] = new uavcan::Publisher<uavcan::equipment::gnss::RTCMStream>(*_node);
+    rtk_gps[driver_index]->setTxTimeout(uavcan::MonotonicDuration::fromMSec(10));
+    rtk_gps[driver_index]->setPriority(uavcan::TransferPriority::OneLowerThanHighest);
+
     _led_conf.devices_count = 0;
     if (enable_filters) {
         configureCanAcceptanceFilters(*_node);
@@ -258,6 +266,8 @@ void AP_UAVCAN::loop(void)
             hal.scheduler->delay_microseconds(100);
             continue;
         }
+
+        gps_rtk_update();
 
         if (_SRV_armed) {
             bool sent_servos = false;
@@ -402,6 +412,37 @@ void AP_UAVCAN::SRV_push_servos()
     _SRV_armed = hal.util->safety_switch_state() != AP_HAL::Util::SAFETY_DISARMED;
 }
 
+/// send gps rtcm data for rtk ///
+void AP_UAVCAN::gps_rtk_update(void)
+{
+	WITH_SEMAPHORE(GPS_sem);
+
+	if(_gps_conf.rtcm_pending == false){
+		return;
+	}
+
+	uavcan::equipment::gnss::RTCMStream gps_msg;
+	gps_msg.protocol_id = 0;
+
+	for(uint8_t i=0; i<_gps_conf.data_len; i++){
+		gps_msg.data.push_back(_gps_conf.data[i]);
+	}
+
+	rtk_gps[_driver_index]->broadcast(gps_msg);
+	_gps_conf.rtcm_pending = false;
+}
+
+void AP_UAVCAN::rtk_write(const uint8_t *data, uint16_t len)
+{
+	WITH_SEMAPHORE(GPS_sem);
+	for(uint8_t i=0; i < len; i++){
+		if(len < 128){
+			_gps_conf.data[i] = data[i];
+		}
+	}
+	_gps_conf.data_len = len;
+	_gps_conf.rtcm_pending = true;
+}
 
 ///// LED /////
 

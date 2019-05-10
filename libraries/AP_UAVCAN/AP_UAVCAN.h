@@ -81,6 +81,8 @@ public:
     ///// LED /////
     bool led_write(uint8_t led_index, uint8_t red, uint8_t green, uint8_t blue);
 
+    ///// GPS /////
+    void rtk_write(const uint8_t *data, uint16_t len);
 
     template <typename DataType_>
     class RegistryBinder {
@@ -147,6 +149,9 @@ private:
     ///// LED /////
     void led_out_send();
 
+    /// GPS ////
+    void gps_rtk_update();
+
     uavcan::PoolAllocator<UAVCAN_NODE_POOL_SIZE, UAVCAN_NODE_POOL_BLOCK_SIZE, AP_UAVCAN::RaiiSynchronizer> _node_allocator;
 
     // UAVCAN parameters
@@ -174,6 +179,13 @@ private:
     uint8_t _SRV_armed;
     uint32_t _SRV_last_send_us;
     HAL_Semaphore SRV_sem;
+
+    HAL_Semaphore GPS_sem;
+    struct{
+    	bool rtcm_pending;
+    	uint16_t data_len;
+    	uint8_t data[128];
+    }_gps_conf;
 
     ///// LED /////
     struct led_device {

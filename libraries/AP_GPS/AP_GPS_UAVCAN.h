@@ -35,6 +35,8 @@ public:
 
     bool read() override;
 
+    void inject_data(const uint8_t *data, uint16_t len) override;
+
     const char *name() const override { return "UAVCAN"; }
 
     static void subscribe_msgs(AP_UAVCAN* ap_uavcan);

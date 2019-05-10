@@ -892,8 +892,11 @@ void AP_GPS::inject_data(uint8_t *data, uint16_t len)
 
 void AP_GPS::inject_data(uint8_t instance, uint8_t *data, uint16_t len)
 {
+
+	hal.console->printf("%d\n", instance);
+
     if (instance < GPS_MAX_RECEIVERS && drivers[instance] != nullptr) {
-        drivers[instance]->inject_data(data, len);
+    	drivers[instance]->inject_data(data, len);
     }
 }
 
