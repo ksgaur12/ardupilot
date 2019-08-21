@@ -484,6 +484,28 @@ bool AC_Fence::boundary_breached(const Vector2f& location, uint16_t num_points, 
     return _poly_loader.boundary_breached(location, num_points, points);
 }
 
+#ifdef HAL_IS_REGISTERED_FLIGHT_MODULE
+bool AC_Fence::set_geo_fence_from_PA(float lat, float lng, uint8_t id){
+
+	if (!check_latlng(lat,lng)) {
+		return false;
+	}
+
+	else {
+        Vector2l point;
+        point.x = lat*1.0e7f;
+        point.y = lng*1.0e7f;
+        if (!_poly_loader.save_point_to_eeprom(id, point)) {
+            return false;
+        } else {
+            // trigger reload of points
+            _boundary_num_points = 0;
+        }
+    }
+	return true;
+}
+#endif
+
 /// handler for polygon fence messages with GCS
 void AC_Fence::handle_msg(GCS_MAVLINK &link, mavlink_message_t* msg)
 {

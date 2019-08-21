@@ -421,6 +421,8 @@ void Copter::one_hz_loop()
     }
 
     arming.update();
+    
+    security.update(motors->armed());
 
     if (!motors->armed()) {
         // make it possible to change ahrs orientation at runtime during initial config

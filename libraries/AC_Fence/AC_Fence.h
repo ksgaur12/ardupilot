@@ -109,6 +109,9 @@ public:
     /// returns true if we've breached the polygon boundary.  simple passthrough to underlying _poly_loader object
     bool boundary_breached(const Vector2f& location, uint16_t num_points, const Vector2f* points) const;
 
+    /// handler for NPNT fence
+    bool set_geo_fence_from_PA(float lat, float lng, uint8_t id);
+
     /// handler for polygon fence messages with GCS
     void handle_msg(GCS_MAVLINK &link, mavlink_message_t* msg);
 

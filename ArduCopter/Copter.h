@@ -78,7 +78,7 @@
 #include <AP_TempCalibration/AP_TempCalibration.h>
 #include <AC_AutoTune/AC_AutoTune.h>
 #include <AP_Common/AP_FWVersion.h>
-
+#include <AP_Security/AP_Security.h>
 // Configuration
 #include "defines.h"
 #include "config.h"
@@ -264,6 +264,8 @@ private:
     RC_Channel *channel_pitch;
     RC_Channel *channel_throttle;
     RC_Channel *channel_yaw;
+
+    AP_Security security;
 
     AP_Logger logger;
 

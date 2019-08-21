@@ -21,6 +21,7 @@
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/rsa.h>
 #include <wolfssl/wolfcrypt/sha.h>
+#include <wolfssl/wolfcrypt/sha256.h>
 #include <wolfssl/wolfcrypt/signature.h>
 #include <wolfssl/wolfcrypt/asn.h>
 #include <wolfssl/wolfcrypt/error-crypt.h>
@@ -32,8 +33,12 @@ public:
     void reset_sha1() override;
     void update_sha1(const char* data, uint16_t data_len) override;
     void final_sha1(char* hash) override;
+    void reset_sha256() override;
+    void update_sha256(const char* data, uint16_t data_len) override;
+    void final_sha256(char* hash) override;
     void load_server_pubkey() override;
     int verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hashed_data_len, const uint8_t* signature, uint16_t signature_len) override;
+    int sign_hash_with_key(uint8_t* hashed_data, uint16_t hashed_data_len, uint8_t* signature);
 
 private:
     static void _generate_private_key(void* _key_mgr);
@@ -42,6 +47,7 @@ private:
     RsaKey ap_key;
     RsaKey server_pubkey;
     wc_Sha sha;
+    wc_Sha256 sha256;
     bool _server_key_loaded = false;
 };
 

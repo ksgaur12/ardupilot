@@ -21,7 +21,6 @@
 #ifdef HAL_IS_REGISTERED_FLIGHT_MODULE
 
 #include "KeyManager.h"
-
 #include <AP_ROMFS/AP_ROMFS.h>
 #include "hwdef/common/flash.h"
 #include <AP_Math/crc.h>
@@ -37,6 +36,11 @@
 #ifndef AP_SELF_PUBLIC_KEY_FILE
 #define AP_SELF_PUBLIC_KEY_FILE "/APM/self_pubkey.der"
 #endif
+
+/* Signature size is the length of the modulus of the RSA key */
+#define SIG_SZ              (2048 / 8)
+/* Maximum bound on digest algorithm encoding around digest */
+#define MAX_ENC_ALG_SZ      32
 
 extern const AP_HAL::HAL& hal;
 using namespace ChibiOS;
@@ -101,6 +105,7 @@ bool KeyManager::_check_and_initialise_private_key()
     gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "KeyManager: Successfully Loaded Private Key.\n");
 
     _save_public_key();
+
     return true;
 }
 
@@ -226,6 +231,22 @@ void KeyManager::final_sha1(char* hash)
     wc_ShaFinal(&sha, (unsigned char*)hash);
 }
 
+void KeyManager::reset_sha256()
+{
+    wc_Sha256Free(&sha256);
+    wc_InitSha256(&sha256);
+}
+
+void KeyManager::update_sha256(const char* data, uint16_t data_len)
+{
+    wc_Sha256Update(&sha256, (uint8_t*)data, data_len);
+}
+
+void KeyManager::final_sha256(char* hash)
+{
+    wc_Sha256Final(&sha256, (unsigned char*)hash);
+}
+
 //Reads the embedded server public key and loads into the raw structure
 void KeyManager::load_server_pubkey()
 {
@@ -242,7 +263,59 @@ void KeyManager::load_server_pubkey()
     if (ret != 0) {
         AP_HAL::panic("Failed to load Server Public Key!");
     }
+    //AP_HAL::panic("Failed to load Server Public Key!");
+    hal.console->printf("rsa key verify: %d\n", wc_CheckRsaKey(&server_pubkey));
+
     _server_key_loaded = true;
+}
+
+//genrates signature from the digested hash of JSON log file
+int KeyManager::sign_hash_with_key(uint8_t* hashed_data, uint16_t hashed_data_len, uint8_t* signature){
+
+	WC_RNG rng;
+    word32 sig_len;
+    int ret =0;
+    if (ret == 0){
+    	ret = wc_InitRng(&rng);
+    }
+
+    sig_len = wc_SignatureGetSize(WC_SIGNATURE_TYPE_RSA, &ap_key, sizeof(ap_key));
+    hal.console->printf("sign length: %d\n", sig_len);
+
+    signature = (uint8_t*)malloc(sig_len*sizeof(uint8_t));
+    if(ret == 0){
+    	hal.console->printf("%d\t%d\n", sizeof(signature), hashed_data_len);
+    	ret = wc_RsaSSL_Sign(hashed_data, hashed_data_len, signature, 256, &ap_key, &rng);
+        hal.console->printf("ret data: %d", ret);
+    }
+    if(ret != 0){
+    	return 0;
+    }
+
+//    hal.console->printf("ret: %d\t", ret);
+
+//    free(sig);
+//    wc_Rsafree(&genKey);
+//    wc_FreeRng(&rng);
+//	byte encSig[WC_SHA256_DIGEST_SIZE + MAX_ENC_ALG_SZ];
+//    word32         encSigLen = 0;
+//	int ret = 0;
+
+//	/* Encode digest with algorithm information as per PKCS#1.5 */
+//	if (ret == 0) {
+//		encSigLen = wc_EncodeSignature(encSig, hashed_data, hashed_data_len, SHA256h);
+//		if ((int)encSigLen < 0)
+//			ret = (int)encSigLen;
+//	}
+//
+//	hal.console->printf("%d\n", encSigLen);
+//	if(ret == 0){
+//	    ret = wc_RsaSSL_Sign(encSig, encSigLen, signature, 256, &ap_key, pRng);
+//	}
+////
+//	hal.console->printf("ret val: %d\n", ret);
+
+	return 0;
 }
 
 //Verifies if the given hash is authentic wrt server's public key
@@ -250,44 +323,58 @@ void KeyManager::load_server_pubkey()
 int KeyManager::verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hashed_data_len, const uint8_t* signature, uint16_t signature_len)
 {
     int ret = 0;
-    if (_server_key_loaded) {
-        return -1;
+    if (!_server_key_loaded) {
+        load_server_pubkey();
     }
+
+
     byte *digest_buf;
     word32 digest_len;
     /* Check arguments */
     if (hashed_data == NULL || hashed_data_len <= 0 || signature == NULL || signature_len <= 0) {
+    	hal.console->printf("wrong param\n");
         return -1;
     }
 
-    /* Validate signature len (1 to max is okay) */
-    if ((int)signature_len > wc_SignatureGetSize(WC_SIGNATURE_TYPE_RSA_W_ENC, &server_pubkey, sizeof(server_pubkey))) {
-        return -1;
+    hal.console->printf("key size: %d \t%d\n", sizeof(server_pubkey), signature_len);
+    for(uint16_t j=0; j<hashed_data_len; j++){
+    	hal.console->printf("%d\t%x\n", j, hashed_data[j]);
     }
+
+    //    /* Validate signature len (1 to max is okay) */
+//    if ((int)signature_len > wc_SignatureGetSize(WC_SIGNATURE_TYPE_RSA_W_ENC, &server_pubkey, sizeof(server_pubkey))) {
+//    	hal.console->printf("invalid sig length\n");
+//    	return -1;
+//    }
 
     //create der encode from the raw data digest we recieved
-    ret = wc_HashGetOID(WC_HASH_TYPE_SHA);
+    ret = wc_HashGetOID(WC_HASH_TYPE_SHA256);
     if (ret > 0) {
         int oid = ret;
 
         /* Allocate buffer for hash and max DER encoded */
         digest_len = signature_len + MAX_DER_DIGEST_SZ;
         digest_buf = (byte*)malloc(digest_len);
+        hal.console->printf("digest length: %d\n", digest_len);
         if (digest_buf) {
             ret = wc_EncodeSignature(digest_buf, hashed_data, hashed_data_len, oid);
             if (ret > 0) {
                 digest_len = ret;
+                hal.console->printf("digest length2: %d\n", digest_len);
             }
             else {
                 free(digest_buf);
             }
         }
         else {
+        	hal.console->printf("failed to encode\n");
             return -1;
         }
     } else {
         return -1;
     }
+
+    hal.console->printf("rsa key verify: %d\n", wc_CheckRsaKey(&server_pubkey));
 
     word32 plain_len = digest_len;
     byte *plain_data;
@@ -303,13 +390,17 @@ int KeyManager::verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hash
         if (ret >= 0)
             ret = wc_RsaSSL_Verify(signature, signature_len, plain_data,
                 plain_len, &server_pubkey);
+    	    hal.console->printf("hash: %d\n", ret);
+
         } while (ret == WC_PENDING_E);
         if (ret >= 0) {
+        	hal.console->printf("signature digest%d\n", ret);
             if ((word32)ret == digest_len &&
                     memcmp(plain_data, digest_buf, digest_len) == 0) {
                 ret = 1; /* Success */
             }
             else {
+            	hal.console->printf("signature %d\n", ret);
                 ret = 0;
             }
         }

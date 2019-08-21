@@ -18,6 +18,7 @@
 #pragma once
 
 #include <AP_HAL/AP_HAL.h>
+#include <AP_AHRS/AP_AHRS.h>
 #include <stdint.h>
 #include <npnt.h>
 
@@ -34,21 +35,57 @@
 #define AP_NPNT_PERMART_FILE "/APM/permissionArtifact.xml"
 #endif
 
+#define AP_NPNT_LOG_FILE "/APM/log_PA.json"
 class AP_Security {
 
 public:
     AP_Security();
 
+    void update(bool arm_flag);
+
     // get singleton instance
     static AP_Security *get_singleton() {
         return _singleton;
     }
+
+
+    struct coordinate{
+    	int32_t lat;
+        int32_t lon;
+    };
+
+
+    struct local_coord{
+    	float x;
+    	float y;
+    };
+
+    struct local_coord diff_coord;
     void init();
+
+    bool permission_granted;
+
 private:
     bool _check_npnt_permission();
+    bool _check_fence_and_time();
+
+    void _sign_permission_artifact();
+
+    bool _polygon_outside(struct local_coord* V, struct local_coord P, int n);
+    float longitude_scale(struct coordinate loc);
+    void location_diff(struct coordinate loc1, struct coordinate loc2);
+
     static AP_Security *_singleton;
-    bool permission_granted;
     npnt_s npnt_handle;
+
+    int _log_fd;
+
+    bool _logging;
+    struct coordinate geo_fence[16];
+    struct local_coord geo_fence_local[16];
+
+    struct Location _global_position_current_loc;
+
 };
 
 namespace AP {

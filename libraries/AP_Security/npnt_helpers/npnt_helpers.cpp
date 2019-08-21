@@ -35,7 +35,27 @@ void final_sha1(char* hash)
     hal.key_mgr->final_sha1(hash);
 }
 
+void reset_sha256()
+{
+    hal.key_mgr->reset_sha256();
+}
+
+void update_sha256(const char* data, uint16_t data_len)
+{
+    hal.key_mgr->update_sha256(data, data_len);
+}
+
+void final_sha256(char* hash)
+{
+    hal.key_mgr->final_sha256(hash);
+}
+
 int8_t npnt_check_authenticity(npnt_s *handle, uint8_t* hashed_data, uint16_t hashed_data_len, const uint8_t* signature, uint16_t signature_len)
 {
     return hal.key_mgr->verify_hash_with_server_pkey(hashed_data, hashed_data_len, signature, signature_len);
+}
+
+int sign_hash(uint8_t* hashed_data, uint16_t hashed_data_len, uint8_t* signature)
+{
+	return hal.key_mgr->sign_hash_with_key(hashed_data, hashed_data_len, signature);
 }

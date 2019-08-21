@@ -1,4 +1,4 @@
-/*
+/*mavlink_msg_global_position_int_send
  * This file is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation, either version 3 of the License, or
@@ -17,8 +17,17 @@
 
 #include <AP_HAL/AP_HAL.h>
 #ifdef HAL_IS_REGISTERED_FLIGHT_MODULE
+// scaling factor from 1e-7 degrees to meters at equator
+// == 1.0e-7 * DEG_TO_RAD * RADIUS_OF_EARTH
+#define LOCATION_SCALING_FAC 0.011131884502145034f
+
+#include <AP_Common/Location.h>
 #include "AP_Security.h"
 #include <AP_Math/crc.h>
+#include <AP_RTC/AP_RTC.h>
+#include <AC_Fence/AC_Fence.h>
+#include <AP_Param/AP_Param.h>
+#include <AP_Logger/AP_Logger.h>
 #if HAL_OS_POSIX_IO
 #include <unistd.h>
 #include <errno.h>
@@ -42,54 +51,346 @@
 #include <stdio.h>
 #endif
 
+#define PA_LOG_FILE_NAME "/APM/log_PA.json"
+
 extern const AP_HAL::HAL& hal;
 
 //Setup Security at the initialisation step
-AP_Security::AP_Security()
+AP_Security::AP_Security():permission_granted(false), _logging(false)
 {
-    if (_singleton != nullptr) {
-        AP_HAL::panic("Too many security modules");
-        return;
-    }
-    _singleton = this;
+	if (_singleton != nullptr) {
+		AP_HAL::panic("Too many security modules");
+		return;
+	}
+	_singleton = this;
 }
 
 void AP_Security::init() {
-    //Initialise NPNT Handler
-    npnt_init_handle(&npnt_handle);
-    if (_check_npnt_permission()) {
-        permission_granted = true;
-        hal.console->printf("Permission Granted!");
-    }
+	//Initialise NPNT Handler
+
+	_sign_permission_artifact();
+	return;
+
+	if(permission_granted){
+		return;
+	}
+	npnt_init_handle(&npnt_handle);
+	if (_check_npnt_permission()) {
+		hal.console->printf("PA load successful\n");
+		if(_check_fence_and_time()){
+			//create json log file
+			_log_fd = ::open("/APM/log_PA.json", O_WRONLY|O_TRUNC|O_CREAT);
+			if (_log_fd < 0) {
+				AP_HAL::panic("Failed to create JSON log file");
+				return;
+			}
+			::close(_log_fd);
+			hal.console->printf("Permission Granted!\n");
+		}
+		else{
+			permission_granted = false;
+		}
+		permission_granted = true;
+	}
 }
 
 //Load permissionArtefacts
 bool AP_Security::_check_npnt_permission()
 {
-    struct stat st;
-    if (::stat(AP_NPNT_PERMART_FILE, &st) != 0) {
-        printf("Unable to find Permission Artifact\n", strerror(errno));
-        return false;
-    }
-    int fd = ::open(AP_NPNT_PERMART_FILE, O_RDONLY|O_CLOEXEC);
-    uint8_t* permart = (uint8_t*)malloc(st.st_size + 1);
-    if (!permart) {
-        return false;
-    }
-    
-    uint32_t permart_len;
-    permart_len = ::read(fd, permart, st.st_size);
-    if ((off_t)permart_len != st.st_size) {
-        free(permart);
-        return false;
-    }
-    //append with NULL character
-    permart[st.st_size] = '\0';
-    permart_len++;
-    if (npnt_set_permart(&npnt_handle, permart, permart_len, 0) < 0) {
-        return false;
-    }
-    return true;
+	struct stat st;
+	if (::stat(AP_NPNT_PERMART_FILE, &st) != 0) {
+		printf("Unable to find Permission Artifact\n", strerror(errno));
+		return false;
+	}
+
+	int fd = ::open(AP_NPNT_PERMART_FILE, O_RDONLY);
+	uint8_t* permart = (uint8_t*)malloc(st.st_size + 1);
+	if (!permart) {
+		::close(fd);
+		free(permart);
+		return false;
+	}
+	uint32_t permart_len;
+	permart_len = ::read(fd, permart, st.st_size);
+
+	if ((off_t)permart_len != st.st_size) {
+		::close(fd);
+		free(permart);
+		return false;
+	}
+
+	//append with NULL character
+	permart[st.st_size] = '\0';
+	permart_len++;
+	int ret = npnt_set_permart(&npnt_handle, permart, permart_len, 0);
+	if ( ret < 0) {
+		hal.console->printf("PA handle failed\n");
+		goto fail;
+	}
+	else{
+		//set geo fence
+		// set parameter
+		enum ap_var_type var_type;
+
+		AP_Param *vp;
+		char key[AP_MAX_NAME_SIZE+1];
+		strncpy(key, "FENCE_TOTAL", AP_MAX_NAME_SIZE);
+		key[AP_MAX_NAME_SIZE] = 0;
+
+		// find existing param so we can get the old value
+		vp = AP_Param::find(key, &var_type);
+		if (vp == nullptr) {
+			return false;
+		}
+
+		float old_value = vp->cast_to_float(var_type);
+
+		// set the value
+		vp->set_float(npnt_handle.fence.nverts+1, var_type);
+
+		if((npnt_handle.fence.nverts+1) == old_value){
+			vp->save(0);
+		}
+		else{
+			vp->save(1);
+		}
+
+		AP_Logger *logger = AP_Logger::get_singleton();
+		if (logger != nullptr) {
+			logger->Write_Parameter(key, vp->cast_to_float(var_type));
+		}
+
+		AP_AHRS &ahrs = AP::ahrs();
+		ahrs.get_position(_global_position_current_loc);
+
+		AC_Fence *fence = AP::fence();
+		if (fence == nullptr) {
+			hal.console->printf("fence set failed\n");
+			goto fail;
+		}
+
+		float return_lat = 0;
+		float return_lon = 0;
+		hal.console->printf("total_fence_points: %d\n", npnt_handle.fence.nverts);
+
+		for(uint8_t i = 0; i < npnt_handle.fence.nverts; i++){
+			if(!fence->set_geo_fence_from_PA(npnt_handle.fence.vertlat[i], npnt_handle.fence.vertlon[i], i+1)){
+				hal.console->printf("Fence set failed");
+				goto fail;
+			}
+			else{
+				if(i != npnt_handle.fence.nverts-1){
+					geo_fence[i].lat = npnt_handle.fence.vertlat[i]*1e+7;
+					geo_fence[i].lon = npnt_handle.fence.vertlon[i]*1e+7;
+					return_lat += npnt_handle.fence.vertlat[i];
+					return_lon += npnt_handle.fence.vertlon[i];
+					location_diff(geo_fence[0], geo_fence[i]);
+					geo_fence_local[i] = diff_coord;
+				}
+			}
+		}
+
+		if(!fence->set_geo_fence_from_PA(return_lat/(npnt_handle.fence.nverts-1), return_lon/(npnt_handle.fence.nverts-1), 0)){ //set the zeroth point as current location
+			hal.console->printf("Fence set failed");
+			goto fail;
+		}
+		goto success;
+	}
+
+	fail:
+		::close(fd);
+		free(permart);
+		hal.console->printf("PA set failed\n");
+		return false;
+
+	success:
+		::close(fd);
+		free(permart);
+		hal.console->printf("PA set successful\n");
+		return true;
+}
+
+
+//Check for geo-fence and time limits
+bool AP_Security::_check_fence_and_time(){
+
+	AP_AHRS &ahrs = AP::ahrs();
+	ahrs.get_position(_global_position_current_loc);
+
+	struct coordinate curr_loc;
+	curr_loc.lat = _global_position_current_loc.lat;
+	curr_loc.lon = _global_position_current_loc.lng;
+
+
+	location_diff(geo_fence[0], curr_loc);
+	struct local_coord curr_loc_local= diff_coord;
+
+	bool out = _polygon_outside(geo_fence_local, curr_loc_local, npnt_handle.fence.nverts-1);
+	if(out){
+		hal.console->printf("polygon outside");
+		return false;
+	}
+
+	uint64_t time_unix = 0;
+	AP::rtc().get_utc_usec(time_unix); // may fail, leaving time_unix at 0
+
+	time_t seconds = (time_t)((time_unix/1000000)+5*3600+30*60); //IST offset 5:30
+	struct tm tm = *localtime(&seconds);
+	tm.tm_year += 1900;
+	tm.tm_mon += 1;
+	time_t t_now = mktime(&tm);
+	time_t t_start = mktime(&npnt_handle.params.flightStartTime);
+	time_t t_end = mktime(&npnt_handle.params.flightEndTime);
+	if(!(difftime(t_now, t_start)>0 && difftime(t_end, t_now)>0)){
+		hal.console->printf("Time limit incorrect\n");
+		return false;
+	}
+
+	return true;
+}
+
+float AP_Security::longitude_scale(struct coordinate loc)
+{
+	float scale = cosf(loc.lat * 1.0e-7f * DEG_TO_RAD);
+	if(scale < 0.01f){
+		return 0.01f;
+	}
+	else if(scale > 1.0f){
+		return 1.0f;
+	}
+	else{
+		return scale;
+	}
+}
+
+void AP_Security::location_diff(struct coordinate loc1, struct coordinate loc2){
+	diff_coord.x = (loc2.lat - loc1.lat) * LOCATION_SCALING_FAC;
+	diff_coord.y = (loc2.lon - loc1.lon) * LOCATION_SCALING_FAC;
+}
+
+
+bool AP_Security::_polygon_outside(struct local_coord* V, struct local_coord P, int n){
+	int i,j;
+	bool outside = true;
+	for (i = 0, j = n-1; i < n; j = i++) {
+		if ((V[i].y > P.y) == (V[j].y > P.y)) {
+			continue;
+		}
+		const int32_t dx1 = P.x - V[i].x;
+		const int32_t dx2 = V[j].x - V[i].x;
+		const int32_t dy1 = P.y - V[i].y;
+		const int32_t dy2 = V[j].y - V[i].y;
+		const int8_t dx1s = (dx1 < 0) ? -1 : 1;
+		const int8_t dx2s = (dx2 < 0) ? -1 : 1;
+		const int8_t dy1s = (dy1 < 0) ? -1 : 1;
+		const int8_t dy2s = (dy2 < 0) ? -1 : 1;
+		const int8_t m1 = dx1s * dy2s;
+		const int8_t m2 = dx2s * dy1s;
+		// we avoid the 64 bit multiplies if we can based on sign checks.
+		if (dy2 < 0) {
+			if (m1 > m2) {
+				outside = !outside;
+			} else if (m1 < m2) {
+				continue;
+			} else if ( dx1 * (int64_t)dy2 > dx2 * (int64_t)dy1 ) {
+				outside = !outside;
+			}
+		} else {
+			if (m1 < m2) {
+				outside = !outside;
+			} else if (m1 > m2) {
+				continue;
+			} else if ( dx1 * (int64_t)dy2 < dx2 * (int64_t)dy1 ) {
+				outside = !outside;
+			}
+		}
+	}
+	return outside;
+}
+
+void AP_Security::_sign_permission_artifact(){
+
+	struct stat _st;
+	if (::stat(AP_NPNT_LOG_FILE, &_st) != 0) {
+		printf("Unable to find Log File\n", strerror(errno));
+		return;
+	}
+
+	int fd = ::open(AP_NPNT_LOG_FILE, O_RDONLY);
+	uint8_t* log = (uint8_t*)malloc(_st.st_size + 1);
+	if (!log) {
+		::close(fd);
+		free(log);
+		return;
+	}
+	uint32_t log_len;
+	log_len = ::read(fd, log, _st.st_size);
+
+	if ((off_t)log_len != _st.st_size) {
+		::close(fd);
+		free(log);
+		return;
+	}
+
+	sign_log_data(&npnt_handle, log, _st.st_size);
+
+	free(log);
+}
+
+//update loop called every 1s for logging
+void AP_Security::update(bool arm_flag){
+	if(!permission_granted)
+		return;
+
+	if((!_logging && arm_flag)|| !_check_fence_and_time() || (!arm_flag && _logging)){
+
+		_log_fd = ::open("/APM/log_PA.json", O_WRONLY|O_APPEND|O_CREAT);
+		if (_log_fd < 0) {
+			AP_HAL::panic("Failed to open JSON log file");
+			return;
+		}
+
+		uint64_t time_unix = 0;
+		AP::rtc().get_utc_usec(time_unix);
+
+		AP_AHRS &ahrs = AP::ahrs();
+		ahrs.get_position(_global_position_current_loc);
+
+		char buf[200];
+		int ret = -1;
+
+		if(!_logging)
+			ret = snprintf(buf, sizeof buf, "[{\"Latitude\": \"%f\", \"TimeStamp\": \"%llu\", \"Altitude\": \"%f\", \"Longitude\": \"%f\"}, ",  _global_position_current_loc.lat*1e-7, time_unix, _global_position_current_loc.alt, _global_position_current_loc.lng*1e-7);
+		else if(arm_flag)
+			ret = snprintf(buf, sizeof buf, "{\"Latitude\": \"%f\", \"TimeStamp\": \"%llu\", \"Altitude\": \"%f\", \"Longitude\": \"%f\"}, ",  _global_position_current_loc.lat*1e-7, time_unix, _global_position_current_loc.alt, _global_position_current_loc.lng*1e-7);
+		else
+			ret = snprintf(buf, sizeof buf, "{\"Latitude\": \"%f\", \"TimeStamp\": \"%llu\", \"Altitude\": \"%f\", \"Longitude\": \"%f\"}]",  _global_position_current_loc.lat*1e-7, time_unix, _global_position_current_loc.alt, _global_position_current_loc.lng*1e-7);
+
+		if(ret < 0){
+			return;
+		}
+		else if(ret >= (int)sizeof(buf)){
+			return;
+		}
+
+		int success = ::write(_log_fd, buf, strlen(buf));
+		::close(_log_fd);
+
+		if(success<=0){
+			return;
+		}
+
+		if(!arm_flag){
+			_sign_permission_artifact();
+			permission_granted = false;
+			_logging = false;
+		}
+
+		if(!_logging){
+			_logging = true;
+		}
+	}
+
 }
 
 // singleton instance
@@ -99,7 +400,7 @@ namespace AP {
 
 AP_Security &security()
 {
-    return *AP_Security::get_singleton();
+	return *AP_Security::get_singleton();
 }
 
 }
