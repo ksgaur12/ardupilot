@@ -19,6 +19,7 @@
 #include "AP_HAL_ChibiOS.h"
 #ifdef HAL_IS_REGISTERED_FLIGHT_MODULE
 #include <wolfssl/options.h>
+#include <wolfssl/wolfcrypt/settings.h>
 #include <wolfssl/wolfcrypt/rsa.h>
 #include <wolfssl/wolfcrypt/sha.h>
 #include <wolfssl/wolfcrypt/sha256.h>
@@ -42,6 +43,7 @@ public:
 
 private:
     static void _generate_private_key(void* _key_mgr);
+    static void _sign_hash(void* _key_mgr);
     void _save_public_key();
     bool _check_and_initialise_private_key();
     RsaKey ap_key;

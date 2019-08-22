@@ -28,6 +28,8 @@
 #include <AC_Fence/AC_Fence.h>
 #include <AP_Param/AP_Param.h>
 #include <AP_Logger/AP_Logger.h>
+#include <npnt_internal.h>
+
 #if HAL_OS_POSIX_IO
 #include <unistd.h>
 #include <errno.h>
@@ -67,13 +69,10 @@ AP_Security::AP_Security():permission_granted(false), _logging(false)
 
 void AP_Security::init() {
 	//Initialise NPNT Handler
-
-	_sign_permission_artifact();
-	return;
-
 	if(permission_granted){
 		return;
 	}
+
 	npnt_init_handle(&npnt_handle);
 	if (_check_npnt_permission()) {
 		hal.console->printf("PA load successful\n");
@@ -84,13 +83,13 @@ void AP_Security::init() {
 				AP_HAL::panic("Failed to create JSON log file");
 				return;
 			}
-			::close(_log_fd);
 			hal.console->printf("Permission Granted!\n");
+			permission_granted = true;
+			::close(_log_fd);
 		}
 		else{
 			permission_granted = false;
 		}
-		permission_granted = true;
 	}
 }
 
@@ -308,37 +307,108 @@ bool AP_Security::_polygon_outside(struct local_coord* V, struct local_coord P, 
 	return outside;
 }
 
-void AP_Security::_sign_permission_artifact(){
+void AP_Security::_sign_json_log(){
 
 	struct stat _st;
-	if (::stat(AP_NPNT_LOG_FILE, &_st) != 0) {
+	if (stat(AP_NPNT_LOG_FILE, &_st) != 0) {
 		printf("Unable to find Log File\n", strerror(errno));
 		return;
 	}
-
-	int fd = ::open(AP_NPNT_LOG_FILE, O_RDONLY);
+	int fd = open(AP_NPNT_LOG_FILE, O_RDONLY);
 	uint8_t* log = (uint8_t*)malloc(_st.st_size + 1);
-	if (!log) {
+	if (!log || fd<=0) {
 		::close(fd);
 		free(log);
 		return;
 	}
 	uint32_t log_len;
-	log_len = ::read(fd, log, _st.st_size);
-
+	log_len = read(fd, log, _st.st_size);
+	log_size = _st.st_size;
 	if ((off_t)log_len != _st.st_size) {
 		::close(fd);
 		free(log);
 		return;
 	}
 
-	sign_log_data(&npnt_handle, log, _st.st_size);
-
+	if(sign_log_data(&npnt_handle, log, _st.st_size, digest_value) != 0){
+		return;
+	}
+	hal.console->printf("sign log file\n");
+	uint8_t signature[256];
+	__sign_hash((uint8_t*)digest_value, 32, signature);
+	::close(fd);
 	free(log);
+}
+
+void AP_Security::_save_signed_log(uint8_t* sig, uint16_t out_len){
+
+	struct stat _st;
+	if (stat(AP_NPNT_LOG_FILE, &_st) != 0) {
+		printf("Unable to find Log File\n", strerror(errno));
+		return;
+	}
+	int fd = open(AP_NPNT_LOG_FILE, O_RDONLY);
+	char* log_char = (char*)malloc(_st.st_size + 1);
+	if (!log_char || fd<=0) {
+		::close(fd);
+		free(log_char);
+		return;
+	}
+	uint32_t log_len;
+	log_len = read(fd, log_char, _st.st_size);
+	log_size = _st.st_size;
+	if ((off_t)log_len != _st.st_size) {
+		::close(fd);
+		free(log_char);
+		return;
+	}
+	::close(fd);
+
+	int json_fd = ::open("/APM/signed_log_PA.json", O_WRONLY|O_TRUNC|O_CREAT);
+	if (json_fd < 0) {
+		return;
+	}
+	//TODO: get the pa ref from the PA xml file
+	int success = ::write(json_fd, "{\"PermissionArtifact\": \"12345678\",\n\"FlightLog\": ", strlen("{\"PermissionArtifact\": \"12345678\",\n\"FlightLog\": "));
+	if(success>0){
+		success = ::write(json_fd, log_char, _st.st_size);
+	}
+	if(success>0){
+		success = ::write(json_fd, ",\n\"Signature\": \"", strlen(",\n\"Signature\": \""));
+	}
+	if(success>0){
+		char * sig_char = (char *)malloc(out_len);
+		int _out_len = 0;
+		for(int i = 0; i < out_len; i++){
+			if(sig[i] == '\n'){ //remove new line char
+				continue;
+			}
+			sig_char[_out_len] = (char)sig[i];
+			_out_len++;
+		}
+		success = ::write(json_fd, sig_char, _out_len);
+	}
+	if(success>0){
+		success = ::write(json_fd, "\"}", strlen("\"}"));
+	}
+	if(success>0){
+		hal.key_mgr->log_signed = false;
+	}
+	free(log_char);
+	::close(json_fd);
 }
 
 //update loop called every 1s for logging
 void AP_Security::update(bool arm_flag){
+
+	if(hal.key_mgr->log_signed){
+		uint16_t out_len;
+		uint8_t* sig = base64_encode(hal.key_mgr->signed_log, 256, &out_len);
+		hal.console->printf("signature generated: %d\n", out_len);
+		_save_signed_log(sig, out_len);
+		return;
+	}
+
 	if(!permission_granted)
 		return;
 
@@ -381,7 +451,7 @@ void AP_Security::update(bool arm_flag){
 		}
 
 		if(!arm_flag){
-			_sign_permission_artifact();
+			_sign_json_log();
 			permission_granted = false;
 			_logging = false;
 		}

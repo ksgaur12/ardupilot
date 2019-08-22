@@ -55,7 +55,7 @@ int8_t npnt_check_authenticity(npnt_s *handle, uint8_t* hashed_data, uint16_t ha
     return hal.key_mgr->verify_hash_with_server_pkey(hashed_data, hashed_data_len, signature, signature_len);
 }
 
-int sign_hash(uint8_t* hashed_data, uint16_t hashed_data_len, uint8_t* signature)
+int __sign_hash(uint8_t* hashed_data, uint16_t hashed_data_len, uint8_t* signature)
 {
 	return hal.key_mgr->sign_hash_with_key(hashed_data, hashed_data_len, signature);
 }

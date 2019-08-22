@@ -64,21 +64,26 @@ public:
     void init();
 
     bool permission_granted;
+	char digest_value[32];
+
 
 private:
     bool _check_npnt_permission();
     bool _check_fence_and_time();
 
-    void _sign_permission_artifact();
+    void _sign_json_log();
 
     bool _polygon_outside(struct local_coord* V, struct local_coord P, int n);
     float longitude_scale(struct coordinate loc);
     void location_diff(struct coordinate loc1, struct coordinate loc2);
+    void _save_signed_log(uint8_t* sig, uint16_t out_len);
 
     static AP_Security *_singleton;
     npnt_s npnt_handle;
 
     int _log_fd;
+    uint8_t* log;
+    int log_size;
 
     bool _logging;
     struct coordinate geo_fence[16];

@@ -29,4 +29,9 @@ public:
     virtual void load_server_pubkey() = 0;
     virtual int verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hashed_data_len, const uint8_t* signature, uint16_t signature_len) = 0;
     virtual int sign_hash_with_key(uint8_t* hashed_data, uint16_t hashed_data_len, uint8_t* signature) = 0;
+
+    bool log_signed;
+    uint8_t* signed_log;
+    uint8_t* _hashed_data;
+
 };
