@@ -22,3 +22,4 @@
 [submodule "modules/libnpnt"]
 	path = modules/libnpnt
 	url = http://github.com/ispirt/libnpnt
+	branch = sha256
