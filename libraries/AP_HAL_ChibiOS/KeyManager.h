@@ -37,12 +37,12 @@ public:
     void reset_sha256() override;
     void update_sha256(const char* data, uint16_t data_len) override;
     void final_sha256(char* hash) override;
-    void load_server_pubkey() override;
     int verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hashed_data_len, const uint8_t* signature, uint16_t signature_len) override;
     int sign_hash_with_key(uint8_t* hashed_data, uint16_t hashed_data_len, uint8_t* signature);
 
 private:
     static void _generate_private_key(void* _key_mgr);
+    static void load_server_pubkey(void* _key_mgr);
     static void _sign_hash(void* _key_mgr);
     void _save_public_key();
     bool _check_and_initialise_private_key();

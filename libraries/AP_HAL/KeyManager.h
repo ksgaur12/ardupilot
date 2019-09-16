@@ -26,7 +26,7 @@ public:
     virtual void reset_sha256() = 0;
     virtual void update_sha256(const char* data, uint16_t data_len) = 0;
     virtual void final_sha256(char* hash) = 0;
-    virtual void load_server_pubkey() = 0;
+    ///virtual void load_server_pubkey() = 0;
     virtual int verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hashed_data_len, const uint8_t* signature, uint16_t signature_len) = 0;
     virtual int sign_hash_with_key(uint8_t* hashed_data, uint16_t hashed_data_len, uint8_t* signature) = 0;
 

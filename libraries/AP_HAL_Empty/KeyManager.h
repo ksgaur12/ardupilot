@@ -26,7 +26,7 @@ public:
     void reset_sha256() {}
     void update_sha256(const char* data, uint16_t data_len) {}
     void final_sha256(char* hash) {}
-    void load_server_pubkey() {}
+    //void load_server_pubkey() {}
     int verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hashed_data_len, const uint8_t* signature, uint16_t signature_len) { return -1; }
     int sign_hash_with_key(uint8_t* hashed_data, uint16_t hashed_data_len, uint8_t* signature);
 };

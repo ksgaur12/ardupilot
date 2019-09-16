@@ -56,6 +56,14 @@ void KeyManager::init() {
 				KeyManager::_generate_private_key,    /* Thread function.     */
 				this);                     /* Thread parameter.    */
 	}
+
+	if(!_server_key_loaded){
+		thread_create_alloc(THD_WORKING_AREA_SIZE(1024),
+				"SERVERKEY",
+				APM_IO_PRIORITY-1,           /* Initial priority.    */
+				KeyManager::load_server_pubkey,    /* Thread function.     */
+				this);
+	}
 }
 
 bool KeyManager::_check_and_initialise_private_key()
@@ -248,25 +256,23 @@ void KeyManager::final_sha256(char* hash)
 }
 
 //Reads the embedded server public key and loads into the raw structure
-void KeyManager::load_server_pubkey()
+void KeyManager::load_server_pubkey(void* _key_mgr)
 {
+	KeyManager* key_mgr = (KeyManager*)_key_mgr;
 	word32 idx = 0;
 	uint32_t server_pubkey_dersize = 0;
 	uint8_t *server_pubkey_der = AP_ROMFS::find_decompress(AP_SERVER_PUBLIC_KEY_FILE, server_pubkey_dersize);
 	if (server_pubkey_der == NULL) {
-		AP_HAL::panic("Failed to find Server Public Key!");;
+		AP_HAL::panic("Failed to find Server Public Key!");
 	}
-	int ret = wc_InitRsaKey(&server_pubkey, 0);
+	int ret = wc_InitRsaKey(&key_mgr->server_pubkey, 0);
 	if (ret == 0) {
-		ret = wc_RsaPublicKeyDecode(server_pubkey_der, &idx, &server_pubkey, server_pubkey_dersize);
+		ret = wc_RsaPublicKeyDecode(server_pubkey_der, &idx, &key_mgr->server_pubkey, server_pubkey_dersize);
 	}
 	if (ret != 0) {
 		AP_HAL::panic("Failed to load Server Public Key!");
 	}
-	//AP_HAL::panic("Failed to load Server Public Key!");
-	hal.console->printf("rsa key verify: %d\n", wc_CheckRsaKey(&server_pubkey));
-
-	_server_key_loaded = true;
+	key_mgr->_server_key_loaded = true;
 }
 
 void KeyManager::_sign_hash(void* _key_mgr){
@@ -344,30 +350,14 @@ int KeyManager::sign_hash_with_key(uint8_t* hashed_data, uint16_t hashed_data_le
 int KeyManager::verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hashed_data_len, const uint8_t* signature, uint16_t signature_len)
 {
 	int ret = 0;
-	if (!_server_key_loaded) {
-		load_server_pubkey();
-	}
 
 	byte *digest_buf;
 	word32 digest_len;
 	/* Check arguments */
 	if (hashed_data == NULL || hashed_data_len <= 0 || signature == NULL || signature_len <= 0) {
-		hal.console->printf("wrong param\n");
 		return -1;
 	}
 
-	hal.console->printf("key size: %d \t%d\n", sizeof(server_pubkey), signature_len);
-	for(uint16_t j=0; j<hashed_data_len; j++){
-		hal.console->printf("%d\t%x\n", j, hashed_data[j]);
-	}
-
-	//    /* Validate signature len (1 to max is okay) */
-	//    if ((int)signature_len > wc_SignatureGetSize(WC_SIGNATURE_TYPE_RSA_W_ENC, &server_pubkey, sizeof(server_pubkey))) {
-	//    	hal.console->printf("invalid sig length\n");
-	//    	return -1;
-	//    }
-
-	//create der encode from the raw data digest we recieved
 	ret = wc_HashGetOID(WC_HASH_TYPE_SHA256);
 	if (ret > 0) {
 		int oid = ret;
@@ -375,26 +365,21 @@ int KeyManager::verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hash
 		/* Allocate buffer for hash and max DER encoded */
 		digest_len = signature_len + MAX_DER_DIGEST_SZ;
 		digest_buf = (byte*)malloc(digest_len);
-		hal.console->printf("digest length: %d\n", digest_len);
 		if (digest_buf) {
 			ret = wc_EncodeSignature(digest_buf, hashed_data, hashed_data_len, oid);
 			if (ret > 0) {
 				digest_len = ret;
-				hal.console->printf("digest length2: %d\n", digest_len);
 			}
 			else {
 				free(digest_buf);
 			}
 		}
 		else {
-			hal.console->printf("failed to encode\n");
 			return -1;
 		}
 	} else {
 		return -1;
 	}
-
-	hal.console->printf("rsa key verify: %d\n", wc_CheckRsaKey(&server_pubkey));
 
 	word32 plain_len = digest_len;
 	byte *plain_data;
@@ -410,17 +395,14 @@ int KeyManager::verify_hash_with_server_pkey(uint8_t* hashed_data, uint16_t hash
 			if (ret >= 0)
 				ret = wc_RsaSSL_Verify(signature, signature_len, plain_data,
 						plain_len, &server_pubkey);
-			hal.console->printf("hash: %d\n", ret);
 
 		} while (ret == WC_PENDING_E);
 		if (ret >= 0) {
-			hal.console->printf("signature digest%d\n", ret);
 			if ((word32)ret == digest_len &&
 					memcmp(plain_data, digest_buf, digest_len) == 0) {
 				ret = 1; /* Success */
 			}
 			else {
-				hal.console->printf("signature %d\n", ret);
 				ret = 0;
 			}
 		}

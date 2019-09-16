@@ -72,10 +72,8 @@ void AP_Security::init() {
 	if(permission_granted){
 		return;
 	}
-
 	npnt_init_handle(&npnt_handle);
 	if (_check_npnt_permission()) {
-		hal.console->printf("PA load successful\n");
 		if(_check_fence_and_time()){
 			//create json log file
 			_log_fd = ::open("/APM/log_PA.json", O_WRONLY|O_TRUNC|O_CREAT);
@@ -83,11 +81,12 @@ void AP_Security::init() {
 				AP_HAL::panic("Failed to create JSON log file");
 				return;
 			}
-			hal.console->printf("Permission Granted!\n");
+			gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "Permission Granted\n");
 			permission_granted = true;
 			::close(_log_fd);
 		}
 		else{
+			gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "Permission Artifact verification failed\n");
 			permission_granted = false;
 		}
 	}
@@ -103,12 +102,15 @@ bool AP_Security::_check_npnt_permission()
 	}
 
 	int fd = ::open(AP_NPNT_PERMART_FILE, O_RDONLY);
+
 	uint8_t* permart = (uint8_t*)malloc(st.st_size + 1);
+
 	if (!permart) {
 		::close(fd);
 		free(permart);
 		return false;
 	}
+
 	uint32_t permart_len;
 	permart_len = ::read(fd, permart, st.st_size);
 
@@ -123,7 +125,6 @@ bool AP_Security::_check_npnt_permission()
 	permart_len++;
 	int ret = npnt_set_permart(&npnt_handle, permart, permart_len, 0);
 	if ( ret < 0) {
-		hal.console->printf("PA handle failed\n");
 		goto fail;
 	}
 	else{
@@ -174,7 +175,7 @@ bool AP_Security::_check_npnt_permission()
 
 		for(uint8_t i = 0; i < npnt_handle.fence.nverts; i++){
 			if(!fence->set_geo_fence_from_PA(npnt_handle.fence.vertlat[i], npnt_handle.fence.vertlon[i], i+1)){
-				hal.console->printf("Fence set failed");
+				hal.console->printf("Fence set failed\n");
 				goto fail;
 			}
 			else{
@@ -190,7 +191,7 @@ bool AP_Security::_check_npnt_permission()
 		}
 
 		if(!fence->set_geo_fence_from_PA(return_lat/(npnt_handle.fence.nverts-1), return_lon/(npnt_handle.fence.nverts-1), 0)){ //set the zeroth point as current location
-			hal.console->printf("Fence set failed");
+			hal.console->printf("Fence set failed\n");
 			goto fail;
 		}
 		goto success;
@@ -226,7 +227,7 @@ bool AP_Security::_check_fence_and_time(){
 
 	bool out = _polygon_outside(geo_fence_local, curr_loc_local, npnt_handle.fence.nverts-1);
 	if(out){
-		hal.console->printf("polygon outside");
+		hal.console->printf("polygon outside\n");
 		return false;
 	}
 
