@@ -37,6 +37,7 @@ enum ap_message : uint8_t {
     MSG_HEARTBEAT,
     MSG_ATTITUDE,
     MSG_LOCATION,
+	MSG_PERMISSION,
     MSG_SYS_STATUS,
     MSG_POWER_STATUS,
     MSG_MEMINFO,
@@ -595,6 +596,8 @@ protected:
     void handle_device_op_read(mavlink_message_t *msg);
     void handle_device_op_write(mavlink_message_t *msg);
  
+    MAV_RESULT handle_permission_artifact();
+
     void send_timesync();
     // returns the time a timesync message was most likely received:
     uint64_t timesync_receive_timestamp_ns() const;

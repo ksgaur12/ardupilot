@@ -566,14 +566,13 @@ bool AP_Arming_Copter::arm(const AP_Arming::Method method, const bool do_arming_
         in_arm_motors = false;
         return true;
     }
-
-//#ifdef HAL_IS_REGISTERED_FLIGHT_MODULE
-//	gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "Verifying Permission Artifact\n");
-//	copter.security.init();
-////	if(!copter.security.permission_granted){
-////		return false;
-////	}
-//#endif
+	
+#ifdef HAL_IS_REGISTERED_FLIGHT_MODULE
+	copter.security.pre_arm_check();
+	if(!copter.security.permission_granted){
+		return false;
+	}
+#endif
 
 
     if (!AP_Arming::arm(method, do_arming_checks)) {

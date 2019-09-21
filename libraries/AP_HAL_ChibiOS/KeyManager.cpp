@@ -34,7 +34,7 @@
 #endif
 
 #ifndef AP_SELF_PUBLIC_KEY_FILE
-#define AP_SELF_PUBLIC_KEY_FILE "/APM/self_pubkey.der"
+#define AP_SELF_PUBLIC_KEY_FILE "/APM/self_pubkey.pem"
 #endif
 
 /* Signature size is the length of the modulus of the RSA key */
@@ -120,9 +120,12 @@ bool KeyManager::_check_and_initialise_private_key()
 void KeyManager::_save_public_key()
 {
 	uint32_t dersize = 600;
+	uint32_t pemsize = 451;
+
 	//Generate Public Key File
 	gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "KeyManager: Extracting Public Key.\n");
 	uint8_t *publickey_der = new uint8_t[dersize];
+	uint8_t *publickey_pem = new uint8_t[pemsize];
 	if (publickey_der == nullptr) {
 		AP_HAL::panic("KeyManager: Failed to Allocate buffer for Public Key.");
 		return;
@@ -136,7 +139,12 @@ void KeyManager::_save_public_key()
 		return;
 	}
 
-	if (write(pubkey_fd, publickey_der, dersize) < 0) {
+	if(wc_DerToPem(publickey_der, dersize, publickey_pem, pemsize, PUBLICKEY_TYPE)< 0){
+		AP_HAL::panic("KeyManager: Failed to convert public key to pem");
+		return;
+	}
+
+	if (write(pubkey_fd, publickey_pem, pemsize) < 0) {
 		AP_HAL::panic("KeyManager: Failed to write public key");
 		return;
 	}

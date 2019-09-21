@@ -58,9 +58,10 @@
 extern const AP_HAL::HAL& hal;
 
 //Setup Security at the initialisation step
-AP_Security::AP_Security():permission_granted(false), _logging(false)
+AP_Security::AP_Security():permission_granted(false), _logging(false), _init_status(false)
 {
 	if (_singleton != nullptr) {
+		gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "Permission Artifact verification Successful\n");
 		AP_HAL::panic("Too many security modules");
 		return;
 	}
@@ -69,26 +70,41 @@ AP_Security::AP_Security():permission_granted(false), _logging(false)
 
 void AP_Security::init() {
 	//Initialise NPNT Handler
+	npnt_init_handle(&npnt_handle);
+	if (_check_npnt_permission()) {
+		_init_status = true;
+		_pa_state = PA_VERTIFACTION_SUCCESS;
+		gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "Permission Artifact verification Successful\n");
+	}
+	else{
+		_pa_state = PA_VERFICATION_FAILED;
+		gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "Permission Artifact verification failed\n");
+	}
+}
+
+void AP_Security::pre_arm_check(){
+
 	if(permission_granted){
 		return;
 	}
-	npnt_init_handle(&npnt_handle);
-	if (_check_npnt_permission()) {
-		if(_check_fence_and_time()){
-			//create json log file
-			_log_fd = ::open("/APM/log_PA.json", O_WRONLY|O_TRUNC|O_CREAT);
-			if (_log_fd < 0) {
-				AP_HAL::panic("Failed to create JSON log file");
-				return;
-			}
-			gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "Permission Granted\n");
-			permission_granted = true;
-			::close(_log_fd);
+	else if(!_init_status){
+		return;
+	}
+
+	if(_check_fence_and_time()){
+		//create json log file
+		_log_fd = ::open("/APM/log_PA.json", O_WRONLY|O_TRUNC|O_CREAT);
+		if (_log_fd < 0) {
+			AP_HAL::panic("Failed to create JSON log file");
+			return;
 		}
-		else{
-			gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "Permission Artifact verification failed\n");
-			permission_granted = false;
-		}
+		gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "Permission Granted\n");
+		permission_granted = true;
+		::close(_log_fd);
+	}
+	else{
+		gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "Permission Artifact verification failed\n");
+		permission_granted = false;
 	}
 }
 
@@ -228,6 +244,7 @@ bool AP_Security::_check_fence_and_time(){
 	bool out = _polygon_outside(geo_fence_local, curr_loc_local, npnt_handle.fence.nverts-1);
 	if(out){
 		hal.console->printf("polygon outside\n");
+		_pa_state = INCORRECT_GEO_FENCE;
 		return false;
 	}
 
@@ -238,14 +255,21 @@ bool AP_Security::_check_fence_and_time(){
 	struct tm tm = *localtime(&seconds);
 	tm.tm_year += 1900;
 	tm.tm_mon += 1;
+
+	hal.console->printf("%d %d %d %d %d %d\n", tm.tm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+	if(!permission_granted){
+		_log_time = tm;
+	}
 	time_t t_now = mktime(&tm);
 	time_t t_start = mktime(&npnt_handle.params.flightStartTime);
 	time_t t_end = mktime(&npnt_handle.params.flightEndTime);
 	if(!(difftime(t_now, t_start)>0 && difftime(t_end, t_now)>0)){
 		hal.console->printf("Time limit incorrect\n");
+		_pa_state = PA_INCORRECT_TIME_LIMIT;
 		return false;
 	}
 
+	_pa_state = PERMISSION_GRANTED;
 	return true;
 }
 
@@ -310,6 +334,7 @@ bool AP_Security::_polygon_outside(struct local_coord* V, struct local_coord P, 
 
 void AP_Security::_sign_json_log(){
 
+	_pa_state = SIGNING_LOG;
 	struct stat _st;
 	if (stat(AP_NPNT_LOG_FILE, &_st) != 0) {
 		printf("Unable to find Log File\n", strerror(errno));
@@ -334,11 +359,16 @@ void AP_Security::_sign_json_log(){
 	if(sign_log_data(&npnt_handle, log, _st.st_size, digest_value) != 0){
 		return;
 	}
-	hal.console->printf("sign log file\n");
+
 	uint8_t signature[256];
 	__sign_hash((uint8_t*)digest_value, 32, signature);
 	::close(fd);
 	free(log);
+}
+
+void AP_Security::send_mavlink_status(mavlink_channel_t chan){
+
+	 mavlink_msg_radio_send(chan, _pa_state,0,0,0,0,0,0);
 }
 
 void AP_Security::_save_signed_log(uint8_t* sig, uint16_t out_len){
@@ -365,7 +395,11 @@ void AP_Security::_save_signed_log(uint8_t* sig, uint16_t out_len){
 	}
 	::close(fd);
 
-	int json_fd = ::open("/APM/signed_log_PA.json", O_WRONLY|O_TRUNC|O_CREAT);
+	char buf[100];
+	snprintf(buf, sizeof buf, "/APM/%d_%d_%d_%d_%d_%d_signed.json",_log_time.tm_year, _log_time.tm_mon, _log_time.tm_mday, _log_time.tm_hour, _log_time.tm_min, _log_time.tm_sec);
+	hal.console->printf("%s\n",buf);
+
+	int json_fd = ::open(buf, O_WRONLY|O_TRUNC|O_CREAT);
 	if (json_fd < 0) {
 		return;
 	}
@@ -395,6 +429,7 @@ void AP_Security::_save_signed_log(uint8_t* sig, uint16_t out_len){
 	if(success>0){
 		hal.key_mgr->log_signed = false;
 	}
+	_pa_state = LOG_SIGNED;
 	free(log_char);
 	::close(json_fd);
 }

@@ -424,6 +424,14 @@ const AP_Param::Info Copter::var_info[] = {
     // @User: Standard
     GSCALAR(acro_yaw_p,                 "ACRO_YAW_P",           ACRO_YAW_P),
 
+
+    // @Param: SECURITY_ENABLED
+    // @DisplayName: security enabled
+    // @Description: Enable or disable the security feature
+    // @Values: 0 1
+    // @User: Standard
+    GSCALAR(security_enable,                 "SECURITY_ENABLE",           SECURITY_ENABLE),
+
 #if MODE_ACRO_ENABLED == ENABLED || MODE_SPORT_ENABLED == ENABLED
     // @Param: ACRO_BAL_ROLL
     // @DisplayName: Acro Balance Roll

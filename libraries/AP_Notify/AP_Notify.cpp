@@ -194,11 +194,15 @@ void AP_Notify::add_backend_helper(NotifyDevice *backend)
 // add notify backends to _devices array
 void AP_Notify::add_backends(void)
 {
+	hal.console->printf("here %d\n", _num_devices);
     if (_num_devices != 0) {
         return;
     }
 
+    hal.console->printf("here\n");
+
     for (uint32_t i = 1; i < Notify_LED_MAX; i = i << 1) {
+    	hal.console->printf("led type : %d\n", _led_type);
         switch(_led_type & i) {
             case Notify_LED_None:
                 break;
@@ -260,6 +264,7 @@ void AP_Notify::add_backends(void)
                 break;
             case Notify_LED_UAVCAN:
 #if HAL_WITH_UAVCAN
+            	hal.console->printf("uavcan led ++++++++\n");
                 ADD_BACKEND(new UAVCAN_RGB_LED(0));
 #endif // HAL_WITH_UAVCAN
                 break;

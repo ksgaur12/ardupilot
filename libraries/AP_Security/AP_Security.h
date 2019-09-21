@@ -48,7 +48,6 @@ public:
         return _singleton;
     }
 
-
     struct coordinate{
     	int32_t lat;
         int32_t lon;
@@ -62,6 +61,8 @@ public:
 
     struct local_coord diff_coord;
     void init();
+    void pre_arm_check();
+    void send_mavlink_status(mavlink_channel_t chan);
 
     bool permission_granted;
 	char digest_value[32];
@@ -72,7 +73,8 @@ private:
     bool _check_fence_and_time();
 
     void _sign_json_log();
-
+    struct tm _log_time;
+    bool _init_status;
     bool _polygon_outside(struct local_coord* V, struct local_coord P, int n);
     float longitude_scale(struct coordinate loc);
     void location_diff(struct coordinate loc1, struct coordinate loc2);
@@ -84,6 +86,8 @@ private:
     int _log_fd;
     uint8_t* log;
     int log_size;
+
+    uint8_t _pa_state;
 
     bool _logging;
     struct coordinate geo_fence[16];

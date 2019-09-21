@@ -554,6 +554,10 @@
  # define SUPER_SIMPLE_RADIUS       1000
 #endif
 
+#ifndef SECURITY_ENABLE
+ # define SECURITY_ENABLE		0
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 // Stabilize Rate Control
 //
