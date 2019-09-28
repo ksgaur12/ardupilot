@@ -466,11 +466,11 @@ void AP_Security::update(bool arm_flag){
 		int ret = -1;
 
 		if(!_logging)
-			ret = snprintf(buf, sizeof buf, "[{\"Latitude\": \"%f\", \"TimeStamp\": \"%llu\", \"Altitude\": \"%f\", \"Longitude\": \"%f\"}, ",  _global_position_current_loc.lat*1e-7, time_unix, _global_position_current_loc.alt, _global_position_current_loc.lng*1e-7);
+			ret = snprintf(buf, sizeof buf, "[{\"Latitude\": \"%f\", \"TimeStamp\": \"%llu\", \"Altitude\": \"%f\", \"State\": \"Take-off\", \"Longitude\": \"%f\"}, ",  _global_position_current_loc.lat*1e-7, time_unix, _global_position_current_loc.alt, _global_position_current_loc.lng*1e-7);
 		else if(arm_flag)
-			ret = snprintf(buf, sizeof buf, "{\"Latitude\": \"%f\", \"TimeStamp\": \"%llu\", \"Altitude\": \"%f\", \"Longitude\": \"%f\"}, ",  _global_position_current_loc.lat*1e-7, time_unix, _global_position_current_loc.alt, _global_position_current_loc.lng*1e-7);
+			ret = snprintf(buf, sizeof buf, "{\"Latitude\": \"%f\", \"TimeStamp\": \"%llu\", \"Altitude\": \"%f\", \"State\": \"Breach\", \"Longitude\": \"%f\"}, ",  _global_position_current_loc.lat*1e-7, time_unix, _global_position_current_loc.alt, _global_position_current_loc.lng*1e-7);
 		else
-			ret = snprintf(buf, sizeof buf, "{\"Latitude\": \"%f\", \"TimeStamp\": \"%llu\", \"Altitude\": \"%f\", \"Longitude\": \"%f\"}]",  _global_position_current_loc.lat*1e-7, time_unix, _global_position_current_loc.alt, _global_position_current_loc.lng*1e-7);
+			ret = snprintf(buf, sizeof buf, "{\"Latitude\": \"%f\", \"TimeStamp\": \"%llu\", \"Altitude\": \"%f\", \"State\": \"Land\", \"Longitude\": \"%f\"}]",  _global_position_current_loc.lat*1e-7, time_unix, _global_position_current_loc.alt, _global_position_current_loc.lng*1e-7);
 
 		if(ret < 0){
 			return;
