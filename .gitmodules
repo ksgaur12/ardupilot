@@ -9,7 +9,8 @@
 	url = git://github.com/google/benchmark.git
 [submodule "modules/mavlink"]
 	path = modules/mavlink
-	url = git://github.com/ArduPilot/mavlink
+	url = git@gitlab.com:ksgaur/mavlink_npnt.git
+	branch = libnpnt-git 
 [submodule "gtest"]
 	path = modules/gtest
 	url = git://github.com/ArduPilot/googletest
@@ -21,5 +22,5 @@
 	url = https://github.com/wolfssl/wolfssl
 [submodule "modules/libnpnt"]
 	path = modules/libnpnt
-	url = http://github.com/ispirt/libnpnt
+	url = http://github.com/ksgaur12/libnpnt.git
 	branch = sha256
