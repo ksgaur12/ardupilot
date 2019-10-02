@@ -57,13 +57,13 @@ void KeyManager::init() {
 				this);                     /* Thread parameter.    */
 	}
 
-	if(!_server_key_loaded){
-		thread_create_alloc(THD_WORKING_AREA_SIZE(1024),
-				"SERVERKEY",
-				APM_IO_PRIORITY-1,           /* Initial priority.    */
-				KeyManager::load_server_pubkey,    /* Thread function.     */
-				this);
-	}
+//	if(!_server_key_loaded){
+//		thread_create_alloc(THD_WORKING_AREA_SIZE(1024),
+//				"SERVERKEY",
+//				APM_IO_PRIORITY-1,           /* Initial priority.    */
+//				KeyManager::load_server_pubkey,    /* Thread function.     */
+//				this);
+//	}
 }
 
 bool KeyManager::_check_and_initialise_private_key()
@@ -160,7 +160,7 @@ void KeyManager::_generate_private_key(void* _key_mgr)
 	uint8_t *der;
 	int ret;
 	uint32_t dersize = 1200;
-	uint32_t keyder_crc = 0xACDC;
+//	uint32_t keyder_crc = 0xACDC;
 	KeyManager* key_mgr = (KeyManager*)_key_mgr;
 	//Initialise Random Number Generator
 	ret = wc_InitRng(&rng);
@@ -202,32 +202,32 @@ void KeyManager::_generate_private_key(void* _key_mgr)
 		hal.scheduler->delay(1);
 	}
 
-	//Generate CRC hash or der key for sanity check
-	keyder_crc = crc_crc32(keyder_crc, der, dersize);
-	//Write the Key to the Flash Memory
-	size_t base_address = stm32_flash_getpageaddr(KEY_FLASH_PAGE);
-	gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "KeyManager: Writing Key Length to Flash.\n");
-	while (!stm32_flash_write(base_address, &dersize, sizeof(dersize))) {
-		hal.scheduler->delay(1);
-	}
-	gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "KeyManager: Writing Key CRC to Flash.\n");
-	base_address += sizeof(dersize);
-	while (!stm32_flash_write(base_address, &keyder_crc, sizeof(keyder_crc))) {
-		hal.scheduler->delay(1);
-	}
-	//ensure we setup 32bit writes only
-	uint32_t written_length = 0;
-	gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "KeyManager: Writing Key to Flash.\n");
-	base_address += sizeof(keyder_crc);
-	while(written_length < dersize) {
-		while (!stm32_flash_write(base_address + written_length, &der[written_length], sizeof(uint32_t))) {
-			hal.scheduler->delay(1);
-		}
-		hal.scheduler->delay(1);
-		written_length += sizeof(uint32_t);
-	}
-	key_mgr->_save_public_key();
-	delete[] der;
+//	//Generate CRC hash or der key for sanity check
+//	keyder_crc = crc_crc32(keyder_crc, der, dersize);
+//	//Write the Key to the Flash Memory
+//	size_t base_address = stm32_flash_getpageaddr(KEY_FLASH_PAGE);
+//	gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "KeyManager: Writing Key Length to Flash.\n");
+//	while (!stm32_flash_write(base_address, &dersize, sizeof(dersize))) {
+//		hal.scheduler->delay(1);
+//	}
+//	gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "KeyManager: Writing Key CRC to Flash.\n");
+//	base_address += sizeof(dersize);
+//	while (!stm32_flash_write(base_address, &keyder_crc, sizeof(keyder_crc))) {
+//		hal.scheduler->delay(1);
+//	}
+//	//ensure we setup 32bit writes only
+//	uint32_t written_length = 0;
+//	gcs().send_statustext(MAV_SEVERITY_ALERT, 0xFF, "KeyManager: Writing Key to Flash.\n");
+//	base_address += sizeof(keyder_crc);
+//	while(written_length < dersize) {
+//		while (!stm32_flash_write(base_address + written_length, &der[written_length], sizeof(uint32_t))) {
+//			hal.scheduler->delay(1);
+//		}
+//		hal.scheduler->delay(1);
+//		written_length += sizeof(uint32_t);
+//	}
+//	key_mgr->_save_public_key();
+//	delete[] der;
 }
 
 

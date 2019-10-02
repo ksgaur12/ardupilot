@@ -47,6 +47,7 @@
 #include <AP_ROMFS/AP_ROMFS.h>
 #include "bl_protocol.h"
 #include "support.h"
+#include "chprintf.h"
 
 #if defined(SECURE) && SECURE==1
 #include <string.h>
@@ -470,7 +471,15 @@ static void test_flash()
     }
 }
 #endif
+void debug(const char *fmt, ...){
+	chprintf((BaseSequentialStream *)&SD2, "%s", "logger: ");
+	va_list ap;
+	va_start(ap, fmt);
+	chvprintf((BaseSequentialStream *)&SD2, fmt, ap);
+	va_end(ap);
+	chprintf((BaseSequentialStream *)&SD2, "%s", "\r\n");
 
+}
 void
 bootloader(unsigned timeout)
 {
@@ -527,7 +536,7 @@ bootloader(unsigned timeout)
 
         // handle the command byte
         switch (c) {
-
+        	debug("command: %x", c);
         // sync
         //
         // command:		GET_SYNC/EOC
@@ -932,11 +941,13 @@ bootloader(unsigned timeout)
             if (!flash_write_flush()) {
                 goto cmd_fail;
             }
+        	debug("booting");
 
             // program the deferred first word
             if (first_words[0] != 0xffffffff) {
 #if defined(SECURE) && SECURE==1
                 //verify signature
+            	debug("verifying signature");
                 wc_InitSha256(&sha);
                 for (unsigned p = 0; p < address - 64; p += 4) {
                     uint32_t bytes;

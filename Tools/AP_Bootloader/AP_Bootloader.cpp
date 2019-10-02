@@ -41,6 +41,13 @@ struct boardinfo board_info;
 #define HAL_BOOTLOADER_TIMEOUT 5000
 #endif
 
+static SerialConfig telem_config = {
+    57600,
+	0,
+	USART_CR2_STOP1_BITS | USART_CR2_LINEN,
+	0
+};
+
 int main(void)
 {
     board_info.board_type = APJ_BOARD_ID;
@@ -52,6 +59,7 @@ int main(void)
 
     bool try_boot = false;
     uint32_t timeout = HAL_BOOTLOADER_TIMEOUT;
+    sdStart(&SD2, &telem_config);
 
     enum rtc_boot_magic m = check_fast_reboot();
     if (stm32_was_watchdog_reset()) {
@@ -63,6 +71,7 @@ int main(void)
         try_boot = true;
         timeout = 0;
     }
+
     
     // if we fail to boot properly we want to pause in bootloader to give
     // a chance to load new app code
